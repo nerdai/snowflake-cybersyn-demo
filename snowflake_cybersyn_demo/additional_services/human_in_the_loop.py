@@ -66,3 +66,27 @@ human_service = HumanService(
     human_input_prompt="{input_str}",
 )
 human_component = ServiceComponent.from_service_definition(human_service)
+
+
+# # launch
+# async def launch() -> None:
+#     # register to message queue
+#     start_consuming_callable = await human_service.register_to_message_queue()
+#     hs_task = asyncio.create_task(start_consuming_callable())  # noqa: F841
+
+#     final_tasks_consuming_callable = await message_queue.register_consumer(
+#         gradio_app._final_task_consumer
+#     )
+#     ft_task = asyncio.create_task(final_tasks_consuming_callable())  # noqa: F841
+
+#     cfg = uvicorn.Config(
+#         app,
+#         host=localhost,
+#         port=human_service.port,
+#     )
+#     server = uvicorn.Server(cfg)
+#     await server.serve()
+
+
+# if __name__ == "__main__":
+#     asyncio.run(launch())
