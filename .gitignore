@@ -8,3 +8,4 @@ secrets.yaml
 Dockerfile.local
 docker-compose.local.yml
 pyproject.local.toml
+__pycache__
