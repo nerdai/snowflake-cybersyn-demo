@@ -43,19 +43,9 @@ repos:
     rev: v1.10.1
     hooks:
       - id: mypy
-        name: mypy-promptfoo-configs
+        name: mypy
         pass_filenames: false
-        files: ^prompt_eval/promptfoo-configs/
-        entry: bash -c 'cd prompt_eval && mypy --config-file ../mypy.ini -p promptfoo-configs "$@"' --
-        additional_dependencies: ["types-PyYAML"]
-  - repo: https://github.com/pre-commit/mirrors-mypy
-    rev: v1.10.1
-    hooks:
-      - id: mypy
-        name: mypy-prompt-arena
-        pass_filenames: false
-        files: ^prompt_eval/prompt-arena/
-        entry: bash -c 'cd prompt_eval && mypy --config-file ../mypy.ini -p prompt-arena "$@"' --
+        entry: bash -c 'mypy --config-file ../mypy.ini -p snowflake_cybersyn_demo "$@"' --
         additional_dependencies: ["types-PyYAML"]
   - repo: https://github.com/pappasam/toml-sort
     rev: v0.23.1
