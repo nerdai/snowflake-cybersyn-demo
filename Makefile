@@ -7,6 +7,3 @@ format:	## Run code autoformatters (black).
 
 lint:	## Run linters: pre-commit (black, ruff, codespell) and mypy
 	pre-commit install && git ls-files | xargs pre-commit run --show-diff-on-failure --files
-
-test:	## Run tests via pytest
-	poetry env use "3.10" && poetry install --with dev --quiet --no-interaction && poetry run pytest tests
