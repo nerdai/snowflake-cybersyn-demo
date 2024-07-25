@@ -1,3 +1,6 @@
+import asyncio
+from typing import Dict
+
 import pandas as pd
 import streamlit as st
 from llama_index.core.llms import ChatMessage
@@ -8,15 +11,14 @@ from snowflake_cybersyn_demo.apps.controller import Controller
 llm = OpenAI(model="gpt-4o-mini")
 control_plane_host = "0.0.0.0"
 control_plane_port = 8001
-# llama_agents_client = LlamaAgentsClient(
-#     control_plane_url=(
-#         f"http://{control_plane_host}:{control_plane_port}"
-#         if control_plane_port
-#         else f"http://{control_plane_host}"
-#     )
-# )
-llama_agents_client = None
-controller = Controller(llama_agents_client)
+human_input_request_queue: asyncio.Queue[Dict[str, str]] = asyncio.Queue()
+human_input_result_queue: asyncio.Queue[str] = asyncio.Queue()
+controller = Controller(
+    human_in_loop_queue=human_input_request_queue,
+    human_in_loop_result_queue=human_input_result_queue,
+    control_plane_host=control_plane_host,
+    control_plane_port=control_plane_port,
+)
 
 ### App
 st.set_page_config(layout="wide")
@@ -39,7 +41,6 @@ with left:
         placeholder="Enter a task input.",
         key="task_input",
         on_change=controller._handle_task_submission,
-        args=(llama_agents_client,),
     )
 
 with right:
