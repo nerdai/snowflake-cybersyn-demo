@@ -1,9 +1,9 @@
 from typing import Any, Generator
 
+import pandas as pd
 import streamlit as st
 from llama_index.core.llms import ChatMessage, ChatResponseGen
 from llama_index.llms.openai import OpenAI
-from streamlit_pills import pills
 
 
 def _llama_index_stream_wrapper(
@@ -28,7 +28,7 @@ st.session_state["human_required_pills"] = []
 st.session_state["completed_pills"] = []
 
 
-left, middle, right = st.columns([1, 2, 1], vertical_alignment="bottom")
+left, right = st.columns([1, 2], vertical_alignment="bottom")
 
 with left:
     task_input = st.text_input(
@@ -38,7 +38,7 @@ with left:
         on_change=_handle_task_submission,
     )
 
-with middle:
+with right:
     if "messages" not in st.session_state:
         st.session_state.messages = []
 
@@ -63,25 +63,21 @@ with middle:
             {"role": "assistant", "content": response}
         )
 
-with right:
-    if st.session_state.submitted_pills:
-        submitted_pills = st.session_state.submitted_pills
-        submitted = pills(
-            "Submitted",
-            options=submitted_pills,
-            key="selected_submitted",
-        )
-
-    if st.session_state.human_required_pills:
-        human_required = pills(
-            "Human Required",
-            st.session_state.human_required_pills,
-            key="selected_human_required",
-        )
-
-    if st.session_state.completed_pills:
-        completed = pills(
-            "Completed",
-            st.session_state.completed_pills,
-            key="selected_completed",
-        )
+bottom = st.container()
+with bottom:
+    st.text("Task Status")
+    tasks = (
+        st.session_state.submitted_pills
+        + st.session_state.human_required_pills
+        + st.session_state.completed_pills
+    )
+    status = (
+        ["submitted"] * len(st.session_state.submitted_pills)
+        + ["human_required"] * len(st.session_state.human_required_pills)
+        + ["completed"] * len(st.session_state.completed_pills)
+    )
+    data = {"tasks": tasks, "status": status}
+    df = pd.DataFrame(data)
+    st.dataframe(
+        df, selection_mode="single-row", use_container_width=True
+    )  # Same as st.write(df)

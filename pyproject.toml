@@ -16,7 +16,6 @@ llama-index-llms-openai = "^0.1.27"
 llama-index-agent-openai = "^0.2.9"
 streamlit = "^1.36.0"
 llama-agents = {version = "^0.0.12", extras = ["kafka"]}
-streamlit-pills = "^0.3.0"
 
 [tool.poetry.group.dev.dependencies]
 mypy = "^1.10.1"
