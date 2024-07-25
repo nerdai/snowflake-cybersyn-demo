@@ -3,17 +3,19 @@ import logging
 from typing import Any, Dict
 
 from llama_agents import HumanService, ServiceComponent
-from llama_agents.message_queues.apache_kafka import KafkaMessageQueue
+from llama_agents.message_queues.rabbitmq import RabbitMQMessageQueue
 
 from snowflake_cybersyn_demo.utils import load_from_env
 
 logger = logging.getLogger("snowflake_cybersyn_demo")
 logging.basicConfig(level=logging.INFO)
 
+message_queue_host = load_from_env("RABBITMQ_HOST")
+message_queue_port = load_from_env("RABBITMQ_NODE_PORT")
+message_queue_username = load_from_env("RABBITMQ_DEFAULT_USER")
+message_queue_password = load_from_env("RABBITMQ_DEFAULT_PASS")
 control_plane_host = load_from_env("CONTROL_PLANE_HOST")
 control_plane_port = load_from_env("CONTROL_PLANE_PORT")
-message_queue_host = load_from_env("KAFKA_HOST")
-message_queue_port = load_from_env("KAFKA_PORT")
 human_in_the_loop_host = load_from_env("HUMAN_IN_THE_LOOP_HOST")
 human_in_the_loop_port = load_from_env("HUMAN_IN_THE_LOOP_PORT")
 localhost = load_from_env("LOCALHOST")
@@ -26,9 +28,7 @@ def human_service_factory(
 ):
     async def human_input_fn(prompt: str, task_id: str, **kwargs: Any) -> str:
         logger.info("human input fn invoked.")
-        await human_input_request_queue.put(
-            {"prompt": prompt, "task_id": task_id}
-        )
+        await human_input_request_queue.put({"prompt": prompt, "task_id": task_id})
         logger.info("placed new prompt in queue.")
 
         # poll until human answer is stored
@@ -52,9 +52,8 @@ def human_service_factory(
         return human_input
 
     # create our multi-agent framework components
-    message_queue = KafkaMessageQueue.from_url_params(
-        host=message_queue_host,
-        port=int(message_queue_port) if message_queue_port else None,
+    message_queue = RabbitMQMessageQueue(
+        url=f"amqp://{message_queue_username}:{message_queue_password}@{message_queue_host}:{message_queue_port}/"
     )
     human_service = HumanService(
         message_queue=message_queue,

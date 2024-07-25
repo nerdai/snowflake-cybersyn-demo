@@ -15,10 +15,10 @@ llama-index-core = "^0.10.57"
 llama-index-llms-openai = "^0.1.27"
 llama-index-agent-openai = "^0.2.9"
 streamlit = "^1.36.0"
-llama-agents = {version = "^0.0.12", extras = ["kafka"]}
 llama-index-readers-file = "^0.1.30"
 llama-index-embeddings-openai = "^0.1.11"
 llama-index-program-openai = "^0.1.7"
+llama-agents = {version = "^0.0.12", extras = ["rabbitmq"]}
 
 [tool.poetry.group.dev.dependencies]
 mypy = "^1.10.1"

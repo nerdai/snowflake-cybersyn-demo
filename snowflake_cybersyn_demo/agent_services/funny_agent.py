@@ -3,7 +3,7 @@ from pathlib import Path
 
 import uvicorn
 from llama_agents import AgentService, ServiceComponent
-from llama_agents.message_queues.apache_kafka import KafkaMessageQueue
+from llama_agents.message_queues.rabbitmq import RabbitMQMessageQueue
 from llama_index.agent.openai import OpenAIAgent
 from llama_index.core import SimpleDirectoryReader, VectorStoreIndex
 from llama_index.core.tools import FunctionTool, QueryEngineTool, ToolMetadata
@@ -11,8 +11,10 @@ from llama_index.llms.openai import OpenAI
 
 from snowflake_cybersyn_demo.utils import load_from_env
 
-message_queue_host = load_from_env("KAFKA_HOST")
-message_queue_port = load_from_env("KAFKA_PORT")
+message_queue_host = load_from_env("RABBITMQ_HOST")
+message_queue_port = load_from_env("RABBITMQ_NODE_PORT")
+message_queue_username = load_from_env("RABBITMQ_DEFAULT_USER")
+message_queue_password = load_from_env("RABBITMQ_DEFAULT_PASS")
 control_plane_host = load_from_env("CONTROL_PLANE_HOST")
 control_plane_port = load_from_env("CONTROL_PLANE_PORT")
 funny_agent_host = load_from_env("FUNNY_AGENT_HOST")
@@ -21,9 +23,8 @@ localhost = load_from_env("LOCALHOST")
 
 
 # create agent server
-message_queue = KafkaMessageQueue.from_url_params(
-    host=message_queue_host,
-    port=int(message_queue_port) if message_queue_port else None,
+message_queue = RabbitMQMessageQueue(
+    url=f"amqp://{message_queue_username}:{message_queue_password}@{message_queue_host}:{message_queue_port}/"
 )
 
 
@@ -46,9 +47,7 @@ query_engine_tool = QueryEngineTool(
     query_engine=query_engine,
     metadata=ToolMetadata(
         name="paul_graham_tool",
-        description=(
-            "Provides information about Paul Graham and his written essays."
-        ),
+        description=("Provides information about Paul Graham and his written essays."),
     ),
 )
 
