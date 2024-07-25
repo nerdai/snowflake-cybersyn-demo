@@ -283,6 +283,27 @@ tests-mypy = ["mypy (>=1.6)", "pytest-mypy-plugins"]
 tests-no-zope = ["attrs[tests-mypy]", "cloudpickle", "hypothesis", "pympler", "pytest (>=4.3.0)", "pytest-xdist[psutil]"]
 
 [[package]]
+name = "beautifulsoup4"
+version = "4.12.3"
+description = "Screen-scraping library"
+optional = false
+python-versions = ">=3.6.0"
+files = [
+    {file = "beautifulsoup4-4.12.3-py3-none-any.whl", hash = "sha256:b80878c9f40111313e55da8ba20bdba06d8fa3969fc68304167741bbf9e082ed"},
+    {file = "beautifulsoup4-4.12.3.tar.gz", hash = "sha256:74e3d1928edc070d21748185c46e3fb33490f22f52a3addee9aee0f4f7781051"},
+]
+
+[package.dependencies]
+soupsieve = ">1.2"
+
+[package.extras]
+cchardet = ["cchardet"]
+chardet = ["chardet"]
+charset-normalizer = ["charset-normalizer"]
+html5lib = ["html5lib"]
+lxml = ["lxml"]
+
+[[package]]
 name = "black"
 version = "24.4.2"
 description = "The uncompromising code formatter."
@@ -1190,6 +1211,20 @@ typing-inspect = ">=0.8.0"
 wrapt = "*"
 
 [[package]]
+name = "llama-index-embeddings-openai"
+version = "0.1.11"
+description = "llama-index embeddings openai integration"
+optional = false
+python-versions = "<4.0,>=3.8.1"
+files = [
+    {file = "llama_index_embeddings_openai-0.1.11-py3-none-any.whl", hash = "sha256:e20806fc4baff6b8f5274decf2c1ca7c5c737648e01865475ffada164e32e173"},
+    {file = "llama_index_embeddings_openai-0.1.11.tar.gz", hash = "sha256:6025e229e375201788a9b14d6ebe470329907576cba5f6b7b832c3d68f39db30"},
+]
+
+[package.dependencies]
+llama-index-core = ">=0.10.1,<0.11.0"
+
+[[package]]
 name = "llama-index-llms-openai"
 version = "0.1.27"
 description = "llama-index llms openai integration"
@@ -1202,6 +1237,42 @@ files = [
 
 [package.dependencies]
 llama-index-core = ">=0.10.57,<0.11.0"
+
+[[package]]
+name = "llama-index-program-openai"
+version = "0.1.7"
+description = "llama-index program openai integration"
+optional = false
+python-versions = "<4.0,>=3.8.1"
+files = [
+    {file = "llama_index_program_openai-0.1.7-py3-none-any.whl", hash = "sha256:33489b573c1050a3f583ff68fcbc4bcbd49f29e74f3e5baea08ab0d5f363403c"},
+    {file = "llama_index_program_openai-0.1.7.tar.gz", hash = "sha256:bf7eb61a073381714be5a049d93b40044dfe51bd4333bee539d1532b7407621f"},
+]
+
+[package.dependencies]
+llama-index-agent-openai = ">=0.1.1,<0.3.0"
+llama-index-core = ">=0.10.57,<0.11.0"
+llama-index-llms-openai = ">=0.1.1"
+
+[[package]]
+name = "llama-index-readers-file"
+version = "0.1.30"
+description = "llama-index readers file integration"
+optional = false
+python-versions = "<4.0,>=3.8.1"
+files = [
+    {file = "llama_index_readers_file-0.1.30-py3-none-any.whl", hash = "sha256:d5f6cdd4685ee73103c68b9bc0dfb0d05439033133fc6bd45ef31ff41519e723"},
+    {file = "llama_index_readers_file-0.1.30.tar.gz", hash = "sha256:32f40465f2a8a65fa5773e03c9f4dd55164be934ae67fad62113680436787d91"},
+]
+
+[package.dependencies]
+beautifulsoup4 = ">=4.12.3,<5.0.0"
+llama-index-core = ">=0.10.37.post1,<0.11.0"
+pypdf = ">=4.0.1,<5.0.0"
+striprtf = ">=0.0.26,<0.0.27"
+
+[package.extras]
+pymupdf = ["pymupdf (>=1.23.21,<2.0.0)"]
 
 [[package]]
 name = "markdown-it-py"
@@ -2199,6 +2270,27 @@ spelling = ["pyenchant (>=3.2,<4.0)"]
 testutils = ["gitpython (>3)"]
 
 [[package]]
+name = "pypdf"
+version = "4.3.1"
+description = "A pure-python PDF library capable of splitting, merging, cropping, and transforming PDF files"
+optional = false
+python-versions = ">=3.6"
+files = [
+    {file = "pypdf-4.3.1-py3-none-any.whl", hash = "sha256:64b31da97eda0771ef22edb1bfecd5deee4b72c3d1736b7df2689805076d6418"},
+    {file = "pypdf-4.3.1.tar.gz", hash = "sha256:b2f37fe9a3030aa97ca86067a56ba3f9d3565f9a791b305c7355d8392c30d91b"},
+]
+
+[package.dependencies]
+typing_extensions = {version = ">=4.0", markers = "python_version < \"3.11\""}
+
+[package.extras]
+crypto = ["PyCryptodome", "cryptography"]
+dev = ["black", "flit", "pip-tools", "pre-commit (<2.18.0)", "pytest-cov", "pytest-socket", "pytest-timeout", "pytest-xdist", "wheel"]
+docs = ["myst_parser", "sphinx", "sphinx_rtd_theme"]
+full = ["Pillow (>=8.0.0)", "PyCryptodome", "cryptography"]
+image = ["Pillow (>=8.0.0)"]
+
+[[package]]
 name = "pytest"
 version = "8.3.1"
 description = "pytest: simple powerful testing with Python"
@@ -2651,6 +2743,17 @@ files = [
 ]
 
 [[package]]
+name = "soupsieve"
+version = "2.5"
+description = "A modern CSS selector implementation for Beautiful Soup."
+optional = false
+python-versions = ">=3.8"
+files = [
+    {file = "soupsieve-2.5-py3-none-any.whl", hash = "sha256:eaa337ff55a1579b6549dc679565eac1e3d000563bcb1c8ab0d0fefbc0c2cdc7"},
+    {file = "soupsieve-2.5.tar.gz", hash = "sha256:5663d5a7b3bfaeee0bc4372e7fc48f9cff4940b3eec54a6451cc5299f1097690"},
+]
+
+[[package]]
 name = "sqlalchemy"
 version = "2.0.31"
 description = "Database Abstraction Library"
@@ -2807,6 +2910,17 @@ watchdog = {version = ">=2.1.5,<5", markers = "platform_system != \"Darwin\""}
 
 [package.extras]
 snowflake = ["snowflake-connector-python (>=2.8.0)", "snowflake-snowpark-python (>=0.9.0)"]
+
+[[package]]
+name = "striprtf"
+version = "0.0.26"
+description = "A simple library to convert rtf to text"
+optional = false
+python-versions = "*"
+files = [
+    {file = "striprtf-0.0.26-py3-none-any.whl", hash = "sha256:8c8f9d32083cdc2e8bfb149455aa1cc5a4e0a035893bedc75db8b73becb3a1bb"},
+    {file = "striprtf-0.0.26.tar.gz", hash = "sha256:fdb2bba7ac440072d1c41eab50d8d74ae88f60a8b6575c6e2c7805dc462093aa"},
+]
 
 [[package]]
 name = "tenacity"
@@ -3331,4 +3445,4 @@ multidict = ">=4.0"
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.10"
-content-hash = "6d8b3ebf94a8d14be3a6f59799596207e85a5c100ee2a01672a00cdd6ef144e3"
+content-hash = "0f1fd4df813c6f8cf2c55cb5a9dd47229848b7db01943b2c442047c0d8c03cef"

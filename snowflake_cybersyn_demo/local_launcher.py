@@ -1,10 +1,11 @@
-from human_in_the_loop.additional_services.human_in_the_loop import (
+from llama_agents import ServerLauncher
+
+from snowflake_cybersyn_demo.additional_services.human_in_the_loop import (
     human_service,
 )
-from human_in_the_loop.agent_services.funny_agent import agent_server
-from human_in_the_loop.core_services.control_plane import control_plane
-from human_in_the_loop.core_services.message_queue import message_queue
-from llama_agents import ServerLauncher
+from snowflake_cybersyn_demo.agent_services.funny_agent import agent_server
+from snowflake_cybersyn_demo.core_services.control_plane import control_plane
+from snowflake_cybersyn_demo.core_services.message_queue import message_queue
 
 # launch it
 launcher = ServerLauncher(

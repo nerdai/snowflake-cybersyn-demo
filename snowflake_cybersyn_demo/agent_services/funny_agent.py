@@ -37,6 +37,7 @@ secret_fact_tool = FunctionTool.from_defaults(fn=get_the_secret_fact)
 
 # rag tool
 data_path = Path(Path(__file__).parents[2].absolute(), "data").as_posix()
+print(data_path)
 loader = SimpleDirectoryReader(input_dir=data_path)
 documents = loader.load_data()
 index = VectorStoreIndex.from_documents(documents)

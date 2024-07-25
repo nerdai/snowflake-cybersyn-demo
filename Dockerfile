@@ -47,3 +47,6 @@ ENV PATH="${VIRTUAL_ENV}/bin:${PATH}"
 # Copy source code
 COPY ./logging.ini ./logging.ini
 COPY ./snowflake_cybersyn_demo ./snowflake_cybersyn_demo
+
+# Copy data for Agentic RAG
+COPY ./data ./data

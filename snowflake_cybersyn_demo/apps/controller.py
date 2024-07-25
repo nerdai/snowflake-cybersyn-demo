@@ -13,6 +13,10 @@ from llama_agents import (
 from llama_agents.types import ActionTypes, TaskResult
 from llama_index.core.llms import ChatMessage, ChatResponseGen
 
+from snowflake_cybersyn_demo.additional_services.human_in_the_loop import (
+    human_service_factory,
+)
+
 logger = logging.getLogger(__name__)
 
 
@@ -41,6 +45,9 @@ class Controller:
     ):
         self.human_in_loop_queue = human_in_loop_queue
         self.human_in_loop_result_queue = human_in_loop_result_queue
+        self._human_service = human_service_factory(
+            human_in_loop_queue, human_in_loop_result_queue
+        )
         self._client = LlamaAgentsClient(
             control_plane_url=(
                 f"http://{control_plane_host}:{control_plane_port}"
@@ -101,5 +108,5 @@ class Controller:
             ],
             status=TaskStatus.SUBMITTED,
         )
-        st.session_state.submitted_pills.append(st.session_state.task_input)
+        st.session_state.submitted_tasks.append(task)
         st.session_state.tasks.append(task)
