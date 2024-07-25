@@ -1,13 +1,18 @@
 import asyncio
 import logging
-from typing import Dict
+from typing import Dict, List
 
 import pandas as pd
 import streamlit as st
 from llama_index.core.llms import ChatMessage
 from llama_index.llms.openai import OpenAI
 
-from snowflake_cybersyn_demo.apps.controller import Controller, TaskStatus
+from snowflake_cybersyn_demo.apps.controller import (
+    Controller,
+    TaskModel,
+    TaskResult,
+    TaskStatus,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -80,9 +85,9 @@ bottom = st.container()
 with bottom:
     st.text("Task Status")
     tasks = (
-        st.session_state.submitted_tasks
-        + st.session_state.human_required_tasks
-        + st.session_state.completed_tasks
+        [t.input for t in st.session_state.submitted_tasks]
+        + [t.input for t in st.session_state.human_required_tasks]
+        + [t.input for t in st.session_state.completed_tasks]
     )
     status = (
         ["submitted"] * len(st.session_state.submitted_tasks)
@@ -98,9 +103,7 @@ with bottom:
 
 # regularly check human input queue
 @st.experimental_fragment(run_every=2)
-def continuously_check_for_human_required():
-    print(f"COMPLETED: {st.session_state.completed_tasks}")
-    print(f"HUMAN REQUIRED: {st.session_state.human_required_tasks}")
+def continuously_check_for_human_required() -> None:
     try:
         dict: Dict[str, str] = human_input_request_queue.get_nowait()
         prompt = dict.get("prompt")
@@ -146,25 +149,87 @@ def continuously_check_for_human_required():
         pass
 
 
+@st.experimental_fragment(run_every=5)
+def continuously_check_for_completed_tasks() -> None:
+    """Logic used when polling the completed tasks queue.
+
+    Specifically, move tasks from either submitted/human-required status to
+    completed status.
+    """
+
+    def remove_from_list_closure(
+        task_list: List[TaskModel],
+        task_status: TaskStatus,
+        # current_task: Tuple[int, TaskStatus] = current_task,
+    ) -> None:
+        """Closure depending on the task list/status.
+
+        Returns a function used to move the task from the incumbent list/status
+        over to the completed list.
+        """
+        ix, task = next(
+            (ix, t)
+            for ix, t in enumerate(task_list)
+            if t.task_id == task_res.task_id
+        )
+        task.status = TaskStatus.COMPLETED
+        task.chat_history.append(
+            ChatMessage(role="assistant", content=task_res.result)
+        )
+        del task_list[ix]
+        st.session_state.completed_tasks.append(task)
+
+        # if current_task:
+        #     current_task_ix, current_task_status = current_task
+        #     if current_task_status == task_status and current_task_ix == ix:
+        #         # current task is the task that is being moved to completed
+        #         current_task = (len(completed) - 1, TaskStatus.COMPLETED)
+
+    try:
+        task_res: TaskResult = controller._completed_tasks_queue.get_nowait()
+        logger.info("got new completed task result")
+        if task_res.task_id in [
+            t.task_id for t in st.session_state.submitted_tasks
+        ]:
+            remove_from_list_closure(
+                st.session_state.submitted_tasks, TaskStatus.SUBMITTED
+            )
+        elif task_res.task_id in [
+            t.task_id for t in st.session_state.human_required_tasks
+        ]:
+            remove_from_list_closure(
+                st.session_state.human_required_tasks,
+                TaskStatus.HUMAN_REQUIRED,
+            )
+        else:
+            raise ValueError(
+                "Completed task not in submitted or human_needed lists."
+            )
+    except asyncio.QueueEmpty:
+        logger.info("completed task queue is empty.")
+        pass
+
+
 continuously_check_for_human_required()
+continuously_check_for_completed_tasks()
 
 
-async def launch():
+async def launch() -> None:
     start_consuming_callable = (
         await controller._human_service.message_queue.register_consumer(
             controller._human_service.as_consumer()
         )
     )
-    hs_task = asyncio.create_task(start_consuming_callable())  # noqa: F841
+    h_task = asyncio.create_task(start_consuming_callable())  # noqa: F841
 
-    final_tasks_consuming_callable = (
+    final_task_consuming_callable = (
         await controller._human_service.message_queue.register_consumer(
             controller._final_task_consumer
         )
     )
-    ft_task = asyncio.create_task(
-        final_tasks_consuming_callable()
-    )  # noqa: F841
+    f_task = asyncio.create_task(final_task_consuming_callable())  # noqa: F841
+
+    await asyncio.Future()
 
 
 if __name__ == "__main__":

@@ -25,7 +25,7 @@ localhost = load_from_env("LOCALHOST")
 def human_service_factory(
     human_input_request_queue: asyncio.Queue[Dict[str, str]],
     human_input_result_queue: asyncio.Queue[str],
-):
+) -> HumanService:
     async def human_input_fn(prompt: str, task_id: str, **kwargs: Any) -> str:
         logger.info("human input fn invoked.")
         await human_input_request_queue.put(
