@@ -47,7 +47,9 @@ query_engine_tool = QueryEngineTool(
     query_engine=query_engine,
     metadata=ToolMetadata(
         name="paul_graham_tool",
-        description=("Provides information about Paul Graham and his written essays."),
+        description=(
+            "Provides information about Paul Graham and his written essays."
+        ),
     ),
 )
 

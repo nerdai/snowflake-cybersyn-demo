@@ -28,7 +28,9 @@ def human_service_factory(
 ):
     async def human_input_fn(prompt: str, task_id: str, **kwargs: Any) -> str:
         logger.info("human input fn invoked.")
-        await human_input_request_queue.put({"prompt": prompt, "task_id": task_id})
+        await human_input_request_queue.put(
+            {"prompt": prompt, "task_id": task_id}
+        )
         logger.info("placed new prompt in queue.")
 
         # poll until human answer is stored
