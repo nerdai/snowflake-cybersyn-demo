@@ -1,5 +1,3 @@
-from typing import List
-
 from asyncio import Lock
 
 
@@ -21,6 +19,10 @@ class AsyncSafeList:
     async def pop(self):
         async with self._lock:
             return self._list.pop()
+
+    async def delete(self, index):
+        async with self._lock:
+            del self._list[index]
 
     async def get(self, index):
         async with self._lock:
