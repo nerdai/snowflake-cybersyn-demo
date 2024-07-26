@@ -77,130 +77,6 @@ with right:
             response = st.write_stream(controller._llama_index_stream_wrapper(stream))
         st.session_state.messages.append({"role": "assistant", "content": response})
 
-bottom = st.container()
-with bottom:
-    st.text("Task Status")
-    tasks = (
-        [t.input for t in st.session_state.submitted_tasks]
-        + [t.input for t in st.session_state.human_required_tasks]
-        + [t.input for t in st.session_state.completed_tasks]
-    )
-    status = (
-        ["submitted"] * len(st.session_state.submitted_tasks)
-        + ["human_required"] * len(st.session_state.human_required_tasks)
-        + ["completed"] * len(st.session_state.completed_tasks)
-    )
-    data = {"tasks": tasks, "status": status}
-    df = pd.DataFrame(data)
-    st.dataframe(
-        df, selection_mode="single-row", use_container_width=True
-    )  # Same as st.write(df)
-
-
-# regularly check human input queue
-@st.experimental_fragment(run_every=2)
-def continuously_check_for_human_required() -> None:
-    try:
-        dict: Dict[str, str] = human_input_request_queue.get_nowait()
-        prompt = dict.get("prompt")
-        task_id = dict.get("task_id")
-        logger.info(f"prompt: {prompt}, task_id: {task_id}")
-
-        # find task with the provided task_id
-        try:
-            ix, task = next(
-                (ix, t)
-                for ix, t in enumerate(st.session_state.submitted_tasks)
-                if t.task_id == task_id
-            )
-            task.prompt = prompt
-            task.status = TaskStatus.HUMAN_REQUIRED
-            task.chat_history += [
-                ChatMessage(
-                    role="assistant",
-                    content="Human assistance is required.",
-                ),
-                ChatMessage(role="assistant", content=prompt),
-            ]
-
-            del st.session_state.submitted_tasks[ix]
-            st.session_state.human_required_tasks.append(task)
-
-            # if current_task:
-            #     current_task_ix, current_task_status = current_task
-            #     if (
-            #         current_task_status == TaskStatus.SUBMITTED
-            #         and current_task_ix == ix
-            #     ):
-            #         current_task = (
-            #             len(st.session_state.human_required_tasks) - 1,
-            #             TaskStatus.HUMAN_REQUIRED,
-            #         )
-
-        except StopIteration:
-            raise ValueError("Cannot find task in list of tasks.")
-        logger.info("appended human input request.")
-    except asyncio.QueueEmpty:
-        logger.info("human input request queue is empty.")
-        pass
-
-
-@st.experimental_fragment(run_every=5)
-def continuously_check_for_completed_tasks() -> None:
-    """Logic used when polling the completed tasks queue.
-
-    Specifically, move tasks from either submitted/human-required status to
-    completed status.
-    """
-
-    def remove_from_list_closure(
-        task_list: List[TaskModel],
-        task_status: TaskStatus,
-        # current_task: Tuple[int, TaskStatus] = current_task,
-    ) -> None:
-        """Closure depending on the task list/status.
-
-        Returns a function used to move the task from the incumbent list/status
-        over to the completed list.
-        """
-        ix, task = next(
-            (ix, t) for ix, t in enumerate(task_list) if t.task_id == task_res.task_id
-        )
-        task.status = TaskStatus.COMPLETED
-        task.chat_history.append(ChatMessage(role="assistant", content=task_res.result))
-        del task_list[ix]
-        st.session_state.completed_tasks.append(task)
-
-        # if current_task:
-        #     current_task_ix, current_task_status = current_task
-        #     if current_task_status == task_status and current_task_ix == ix:
-        #         # current task is the task that is being moved to completed
-        #         current_task = (len(completed) - 1, TaskStatus.COMPLETED)
-
-    try:
-        task_res: TaskResult = controller._completed_tasks_queue.get_nowait()
-        logger.info("got new completed task result")
-        if task_res.task_id in [t.task_id for t in st.session_state.submitted_tasks]:
-            remove_from_list_closure(
-                st.session_state.submitted_tasks, TaskStatus.SUBMITTED
-            )
-        elif task_res.task_id in [
-            t.task_id for t in st.session_state.human_required_tasks
-        ]:
-            remove_from_list_closure(
-                st.session_state.human_required_tasks,
-                TaskStatus.HUMAN_REQUIRED,
-            )
-        else:
-            raise ValueError("Completed task not in submitted or human_needed lists.")
-    except asyncio.QueueEmpty:
-        logger.info("completed task queue is empty.")
-        pass
-
-
-continuously_check_for_human_required()
-continuously_check_for_completed_tasks()
-
 
 @st.cache_resource
 def get_consuming_callables() -> None:
@@ -225,11 +101,84 @@ def get_consuming_callables() -> None:
 start_consuming_callable, final_task_consuming_callable = get_consuming_callables()
 
 
-async def listening_to_queue() -> None:
+def remove_from_list_closure(
+    task_list: List[TaskModel],
+    task_status: TaskStatus,
+    task_res: TaskResult,
+    # current_task: Tuple[int, TaskStatus] = current_task,
+) -> None:
+    """Closure depending on the task list/status.
+
+    Returns a function used to move the task from the incumbent list/status
+    over to the completed list.
+    """
+    ix, task = next(
+        (ix, t) for ix, t in enumerate(task_list) if t.task_id == task_res.task_id
+    )
+    task.status = TaskStatus.COMPLETED
+    task.chat_history.append(ChatMessage(role="assistant", content=task_res.result))
+    del task_list[ix]
+
+    # if current_task:
+    #     current_task_ix, current_task_status = current_task
+    #     if current_task_status == task_status and current_task_ix == ix:
+    #         # current task is the task that is being moved to completed
+    #         current_task = (len(completed) - 1, TaskStatus.COMPLETED)
+
+
+async def listening_to_queue(ctr) -> None:
     h_task = asyncio.create_task(start_consuming_callable())  # noqa: F841
     f_task = asyncio.create_task(final_task_consuming_callable())  # noqa: F841
+
+    submitted_tasks = []
+    human_required_tasks = []
+    completed_tasks = []
     while True:
-        await asyncio.sleep(0.1)
+        await asyncio.sleep(5)
+        try:
+            task_res: TaskResult = controller._completed_tasks_queue.get_nowait()
+            logger.info("got new completed task result")
+        except asyncio.QueueEmpty:
+            continue
+
+        if task_res.task_id in [t.task_id for t in submitted_tasks]:
+            ix, task = next(
+                (ix, t)
+                for ix, t in enumerate(submitted_tasks)
+                if t.task_id == task_res.task_id
+            )
+            task.status = TaskStatus.COMPLETED
+            task.chat_history.append(
+                ChatMessage(role="assistant", content=task_res.result)
+            )
+            del submitted_tasks[ix]
+            completed_tasks.append(task)
+            logger.info(f"updated task status from submitted to completed.")
+        elif task_res.task_id in [t.task_id for t in human_required_tasks]:
+            remove_from_list_closure(
+                st.session_state.human_required_tasks,
+                TaskStatus.HUMAN_REQUIRED,
+            )
+
+        ctr.text("Task Status")
+        tasks = (
+            [t.input for t in submitted_tasks]
+            + [t.input for t in human_required_tasks]
+            + [t.input for t in completed_tasks]
+        )
+        status = (
+            ["submitted"] * len(submitted_tasks)
+            + ["human_required"] * len(human_required_tasks)
+            + ["completed"] * len(completed_tasks)
+        )
+        data = {"tasks": tasks, "status": status}
+        logger.info(f"data: {data}")
+        df = pd.DataFrame(data)
+        ctr.dataframe(
+            df, selection_mode="single-row", use_container_width=True
+        )  # Same as st.write(df)
 
 
-asyncio.run(listening_to_queue())
+bottom = st.empty()
+
+asyncio.run(listening_to_queue(bottom))
