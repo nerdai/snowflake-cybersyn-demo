@@ -64,6 +64,7 @@ class Controller:
             message_type="human", handler=self._process_completed_task_messages
         )
         self._completed_tasks_queue: asyncio.Queue[TaskResult] = asyncio.Queue()
+        self._submitted_tasks_queue: asyncio.Queue[TaskModel] = asyncio.Queue()
 
     async def _process_completed_task_messages(
         self, message: QueueMessage, **kwargs: Any
@@ -93,6 +94,8 @@ class Controller:
 
         # create new task and store in state
         task_input = st.session_state.task_input
+        if task_input == "":
+            return
         task_id = self._client.create_task(task_input)
         task = TaskModel(
             task_id=task_id,
@@ -106,5 +109,6 @@ class Controller:
             ],
             status=TaskStatus.SUBMITTED,
         )
-        st.session_state.submitted_tasks.append(task)
-        st.session_state.tasks.append(task)
+        self._submitted_tasks_queue.put_nowait(task)
+        logger.info("Added task to submitted queue")
+        st.session_state.task_input = ""
