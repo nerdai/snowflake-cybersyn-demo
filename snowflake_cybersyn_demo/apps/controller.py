@@ -63,9 +63,7 @@ class Controller:
         self._final_task_consumer = CallableMessageConsumer(
             message_type="human", handler=self._process_completed_task_messages
         )
-        self._completed_tasks_queue: asyncio.Queue[
-            TaskResult
-        ] = asyncio.Queue()
+        self._completed_tasks_queue: asyncio.Queue[TaskResult] = asyncio.Queue()
 
     async def _process_completed_task_messages(
         self, message: QueueMessage, **kwargs: Any

@@ -74,12 +74,8 @@ with right:
                     for m in st.session_state.messages
                 ]
             )
-            response = st.write_stream(
-                controller._llama_index_stream_wrapper(stream)
-            )
-        st.session_state.messages.append(
-            {"role": "assistant", "content": response}
-        )
+            response = st.write_stream(controller._llama_index_stream_wrapper(stream))
+        st.session_state.messages.append({"role": "assistant", "content": response})
 
 bottom = st.container()
 with bottom:
@@ -168,14 +164,10 @@ def continuously_check_for_completed_tasks() -> None:
         over to the completed list.
         """
         ix, task = next(
-            (ix, t)
-            for ix, t in enumerate(task_list)
-            if t.task_id == task_res.task_id
+            (ix, t) for ix, t in enumerate(task_list) if t.task_id == task_res.task_id
         )
         task.status = TaskStatus.COMPLETED
-        task.chat_history.append(
-            ChatMessage(role="assistant", content=task_res.result)
-        )
+        task.chat_history.append(ChatMessage(role="assistant", content=task_res.result))
         del task_list[ix]
         st.session_state.completed_tasks.append(task)
 
@@ -188,9 +180,7 @@ def continuously_check_for_completed_tasks() -> None:
     try:
         task_res: TaskResult = controller._completed_tasks_queue.get_nowait()
         logger.info("got new completed task result")
-        if task_res.task_id in [
-            t.task_id for t in st.session_state.submitted_tasks
-        ]:
+        if task_res.task_id in [t.task_id for t in st.session_state.submitted_tasks]:
             remove_from_list_closure(
                 st.session_state.submitted_tasks, TaskStatus.SUBMITTED
             )
@@ -202,9 +192,7 @@ def continuously_check_for_completed_tasks() -> None:
                 TaskStatus.HUMAN_REQUIRED,
             )
         else:
-            raise ValueError(
-                "Completed task not in submitted or human_needed lists."
-            )
+            raise ValueError("Completed task not in submitted or human_needed lists.")
     except asyncio.QueueEmpty:
         logger.info("completed task queue is empty.")
         pass
@@ -214,23 +202,34 @@ continuously_check_for_human_required()
 continuously_check_for_completed_tasks()
 
 
-async def launch() -> None:
-    start_consuming_callable = (
-        await controller._human_service.message_queue.register_consumer(
-            controller._human_service.as_consumer()
+@st.cache_resource
+def get_consuming_callables() -> None:
+    async def launch() -> None:
+        start_consuming_callable = (
+            await controller._human_service.message_queue.register_consumer(
+                controller._human_service.as_consumer()
+            )
         )
-    )
+
+        final_task_consuming_callable = (
+            await controller._human_service.message_queue.register_consumer(
+                controller._final_task_consumer
+            )
+        )
+
+        return start_consuming_callable, final_task_consuming_callable
+
+    return asyncio.run(launch())
+
+
+start_consuming_callable, final_task_consuming_callable = get_consuming_callables()
+
+
+async def listening_to_queue() -> None:
     h_task = asyncio.create_task(start_consuming_callable())  # noqa: F841
-
-    final_task_consuming_callable = (
-        await controller._human_service.message_queue.register_consumer(
-            controller._final_task_consumer
-        )
-    )
     f_task = asyncio.create_task(final_task_consuming_callable())  # noqa: F841
+    while True:
+        await asyncio.sleep(0.1)
 
-    await asyncio.Future()
 
-
-if __name__ == "__main__":
-    asyncio.run(launch())
+asyncio.run(listening_to_queue())
