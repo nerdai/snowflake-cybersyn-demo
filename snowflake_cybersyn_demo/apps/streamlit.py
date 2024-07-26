@@ -75,12 +75,8 @@ with right:
                     for m in st.session_state.messages
                 ]
             )
-            response = st.write_stream(
-                controller._llama_index_stream_wrapper(stream)
-            )
-        st.session_state.messages.append(
-            {"role": "assistant", "content": response}
-        )
+            response = st.write_stream(controller._llama_index_stream_wrapper(stream))
+        st.session_state.messages.append({"role": "assistant", "content": response})
 
 
 @st.cache_resource
@@ -121,14 +117,10 @@ def remove_from_list_closure(
     over to the completed list.
     """
     ix, task = next(
-        (ix, t)
-        for ix, t in enumerate(task_list)
-        if t.task_id == task_res.task_id
+        (ix, t) for ix, t in enumerate(task_list) if t.task_id == task_res.task_id
     )
     task.status = TaskStatus.COMPLETED
-    task.chat_history.append(
-        ChatMessage(role="assistant", content=task_res.result)
-    )
+    task.chat_history.append(ChatMessage(role="assistant", content=task_res.result))
     del task_list[ix]
 
     # if current_task:
@@ -162,9 +154,7 @@ async def listening_to_queue(ctr) -> None:
         logger.info(f"completed: {completed_tasks._list}")
 
         try:
-            new_task: TaskModel = (
-                controller._submitted_tasks_queue.get_nowait()
-            )
+            new_task: TaskModel = controller._submitted_tasks_queue.get_nowait()
             await submitted_tasks.append(new_task)
             logger.info("got new submitted task")
             logger.info(f"submitted: {submitted_tasks}")
@@ -172,9 +162,7 @@ async def listening_to_queue(ctr) -> None:
             logger.info("task completion queue is empty")
 
         try:
-            task_res: TaskResult = (
-                controller._completed_tasks_queue.get_nowait()
-            )
+            task_res: TaskResult = controller._completed_tasks_queue.get_nowait()
             logger.info("got new completed task result")
         except asyncio.QueueEmpty:
             task_res = None
@@ -220,7 +208,7 @@ async def listening_to_queue(ctr) -> None:
         ctr.dataframe(
             df, selection_mode="single-row", use_container_width=True
         )  # Same as st.write(df)
-        await asyncio.sleep(1)
+        await asyncio.sleep(5)
 
 
 bottom = st.empty()
