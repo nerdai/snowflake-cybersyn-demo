@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import queue
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any, Generator, List, Optional
@@ -40,11 +41,13 @@ class Controller:
         self,
         human_in_loop_queue: asyncio.Queue,
         human_in_loop_result_queue: asyncio.Queue,
+        submitted_tasks_queue: queue.Queue,
         control_plane_host: str = "127.0.0.1",
         control_plane_port: Optional[int] = 8000,
     ):
         self.human_in_loop_queue = human_in_loop_queue
         self.human_in_loop_result_queue = human_in_loop_result_queue
+        self.submitted_tasks_queue: queue.Queue[TaskModel] = queue.Queue()
         self._human_service = human_service_factory(
             human_in_loop_queue, human_in_loop_result_queue
         )
@@ -64,7 +67,6 @@ class Controller:
             message_type="human", handler=self._process_completed_task_messages
         )
         self._completed_tasks_queue: asyncio.Queue[TaskResult] = asyncio.Queue()
-        self._submitted_tasks_queue: asyncio.Queue[TaskModel] = asyncio.Queue()
 
     async def _process_completed_task_messages(
         self, message: QueueMessage, **kwargs: Any
@@ -109,6 +111,6 @@ class Controller:
             ],
             status=TaskStatus.SUBMITTED,
         )
-        self._submitted_tasks_queue.put_nowait(task)
+        st.session_state.submitted_tasks.append(task)
         logger.info("Added task to submitted queue")
         st.session_state.task_input = ""
