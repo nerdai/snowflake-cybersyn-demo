@@ -133,7 +133,7 @@ if "current_task" not in st.session_state:
     st.session_state.current_task = None
 
 
-left, right = st.columns([1, 2], vertical_alignment="bottom")
+left, right = st.columns([1, 2], vertical_alignment="top")
 
 with left:
     task_input = st.text_input(
@@ -144,21 +144,22 @@ with left:
     )
 
 
-with right:
-    messages_container = st.container(height=300)
-    with messages_container:
-        if st.session_state.current_task:
-            messages = [
-                m.dict() for m in st.session_state.current_task.history
-            ]
-            for message in messages:
-                with st.chat_message(message["role"]):
-                    st.markdown(message["content"])
-        else:
-            st.empty()
+def chat_window() -> None:
+    with st.sidebar:
+        messages_container = st.container(height=500)
+        with messages_container:
+            if st.session_state.current_task:
+                messages = [
+                    m.dict() for m in st.session_state.current_task.history
+                ]
+                for message in messages:
+                    with st.chat_message(message["role"]):
+                        st.markdown(message["content"])
+            else:
+                st.empty()
 
-    if prompt := st.chat_input("What is up?"):
-        pass
+        if _ := st.chat_input("What is up?"):
+            pass
         #     st.session_state.messages.append({"role": "user", "content": prompt})
         #     with st.chat_message("user"):
         #         st.markdown(prompt)
@@ -203,7 +204,7 @@ def task_df() -> None:
         hide_index=True,
         selection_mode="single-row",
         use_container_width=True,
-        on_select=controller.get_task_selection_handler(df),
+        on_select=controller.get_task_selection_handler(df, chat_window),
         key="task_df",
     )
 

@@ -70,10 +70,6 @@ class Controller:
             input=task_input,
             history=[
                 ChatMessage(role="user", content=task_input),
-                ChatMessage(
-                    role="assistant",
-                    content=f"Successfully submitted task: {task_id}.",
-                ),
             ],
             status=TaskStatus.SUBMITTED,
         )
@@ -138,7 +134,9 @@ class Controller:
         except StopIteration:
             raise ValueError("Cannot find task in list of tasks.")
 
-    def get_task_selection_handler(self, task_df: pd.DataFrame) -> Callable:
+    def get_task_selection_handler(
+        self, task_df: pd.DataFrame, display_chat_window: Callable
+    ) -> Callable:
         def task_selection_handler() -> None:
             dataframe_selection_state = st.session_state.task_df["selection"][
                 "rows"
@@ -166,6 +164,7 @@ class Controller:
             try:
                 task = next(t for t in task_list if t.task_id == task_id)
                 st.session_state.current_task = task
+                display_chat_window()
                 logger.info("Displaying selected tasks history.")
                 logger.info(f"messages: {st.session_state.messages}")
             except StopIteration:
