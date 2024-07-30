@@ -1,19 +1,21 @@
 import asyncio
 import logging
 import queue
-import time
 import threading
-from typing import Dict, List, Optional
+import time
+from typing import Optional
 
 import pandas as pd
 import streamlit as st
 from llama_index.core.llms import ChatMessage
 from llama_index.llms.openai import OpenAI
 
-from snowflake_cybersyn_demo.apps.async_list import AsyncSafeList
+from snowflake_cybersyn_demo.additional_services.human_in_the_loop import (
+    HumanRequest,
+    HumanService,
+)
 from snowflake_cybersyn_demo.apps.controller import (
     Controller,
-    TaskModel,
     TaskResult,
     TaskStatus,
 )
@@ -24,8 +26,6 @@ logger = logging.getLogger(__name__)
 llm = OpenAI(model="gpt-4o-mini")
 control_plane_host = "0.0.0.0"
 control_plane_port = 8001
-human_input_request_queue: asyncio.Queue[Dict[str, str]] = asyncio.Queue()
-human_input_result_queue: asyncio.Queue[str] = asyncio.Queue()
 
 
 st.set_page_config(layout="wide")
@@ -33,20 +33,41 @@ st.set_page_config(layout="wide")
 
 @st.cache_resource
 def startup():
-    human_input_request_queue: asyncio.Queue[Dict[str, str]] = asyncio.Queue()
-    human_input_result_queue: asyncio.Queue[str] = asyncio.Queue()
-    submitted_tasks_queue = queue.Queue()
-    completed_tasks_queue = queue.Queue()
-    controller = Controller(
-        human_in_loop_queue=human_input_request_queue,
-        human_in_loop_result_queue=human_input_result_queue,
-        control_plane_host=control_plane_host,
-        control_plane_port=control_plane_port,
-        submitted_tasks_queue=submitted_tasks_queue,
+    from snowflake_cybersyn_demo.additional_services.human_in_the_loop import (
+        human_input_request_queue,
+        human_input_result_queue,
+        human_service,
     )
 
+    completed_tasks_queue = queue.Queue()
+    controller = Controller(
+        control_plane_host=control_plane_host,
+        control_plane_port=control_plane_port,
+    )
+
+    async def start_consuming_human_tasks(human_service: HumanService):
+        human_task_consuming_callable = (
+            await human_service.message_queue.register_consumer(
+                human_service.as_consumer()
+            )
+        )
+
+        ht_task = asyncio.create_task(human_task_consuming_callable())
+
+        launch_task = asyncio.create_task(human_service.processing_loop())
+
+        await asyncio.Future()
+
+    hr_thread = threading.Thread(
+        name="Human Request thread",
+        target=asyncio.run,
+        args=(start_consuming_human_tasks(human_service),),
+        daemon=False,
+    )
+    hr_thread.start()
+
     final_task_consumer = FinalTaskConsumer(
-        message_queue=controller._human_service.message_queue,
+        message_queue=human_service.message_queue,
         completed_tasks_queue=completed_tasks_queue,
     )
 
@@ -58,24 +79,33 @@ def startup():
         await final_task_consuming_callable()
 
     # server thread will remain active as long as streamlit thread is running, or is manually shutdown
-    thread = threading.Thread(
+    ft_thread = threading.Thread(
         name="Consuming thread",
         target=asyncio.run,
         args=(start_consuming_finalized_tasks(final_task_consumer),),
         daemon=False,
     )
-    thread.start()
+    ft_thread.start()
 
     time.sleep(5)
-    st.session_state.consuming = True
     logger.info("Started consuming.")
 
-    return controller, submitted_tasks_queue, completed_tasks_queue, final_task_consumer
+    return (
+        controller,
+        completed_tasks_queue,
+        final_task_consumer,
+        human_input_request_queue,
+        human_input_result_queue,
+    )
 
 
-controller, submitted_tasks_queue, completed_tasks_queue, final_task_consumer = (
-    startup()
-)
+(
+    controller,
+    completed_tasks_queue,
+    final_task_consumer,
+    human_input_request_queue,
+    human_input_result_queue,
+) = startup()
 
 
 ### App
@@ -124,8 +154,12 @@ with right:
                     for m in st.session_state.messages
                 ]
             )
-            response = st.write_stream(controller._llama_index_stream_wrapper(stream))
-        st.session_state.messages.append({"role": "assistant", "content": response})
+            response = st.write_stream(
+                controller._llama_index_stream_wrapper(stream)
+            )
+        st.session_state.messages.append(
+            {"role": "assistant", "content": response}
+        )
 
 
 @st.experimental_fragment(run_every="30s")
@@ -161,7 +195,7 @@ def process_completed_tasks(completed_queue: queue.Queue):
         task_res = completed_queue.get_nowait()
         logger.info("got new task result")
     except queue.Empty:
-        logger.info(f"task result queue is empty.")
+        logger.info("task result queue is empty.")
 
     if task_res:
         try:
@@ -185,3 +219,38 @@ def process_completed_tasks(completed_queue: queue.Queue):
 
 
 process_completed_tasks(completed_queue=completed_tasks_queue)
+
+
+@st.experimental_fragment(run_every=5)
+def process_human_input_requests(
+    human_requests_queue: queue.Queue[HumanRequest],
+):
+    human_req: Optional[HumanRequest] = None
+    try:
+        human_req = human_requests_queue.get_nowait()
+        logger.info("got new human request")
+    except queue.Empty:
+        logger.info("human request queue is empty.")
+
+    if human_req:
+        try:
+            task_list = st.session_state.get("submitted_tasks")
+            print(f"submitted tasks: {task_list}")
+            ix, task = next(
+                (ix, t)
+                for ix, t in enumerate(task_list)
+                if t.task_id == human_req["task_id"]
+            )
+            task.status = TaskStatus.COMPLETED
+            task.chat_history.append(
+                ChatMessage(role="assistant", content=human_req["prompt"])
+            )
+            del task_list[ix]
+            st.session_state.submitted_tasks = task_list
+            st.session_state.human_required_tasks.append(task)
+            logger.info("updated submitted and human required tasks list.")
+        except StopIteration:
+            raise ValueError("Cannot find task in list of tasks.")
+
+
+process_human_input_requests(human_requests_queue=human_input_request_queue)

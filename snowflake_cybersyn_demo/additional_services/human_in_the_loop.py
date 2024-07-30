@@ -1,6 +1,7 @@
 import asyncio
 import logging
-from typing import Any, Dict
+import queue
+from typing import Any, Dict, TypedDict
 
 from llama_agents import HumanService, ServiceComponent
 from llama_agents.message_queues.rabbitmq import RabbitMQMessageQueue
@@ -21,21 +22,24 @@ human_in_the_loop_port = load_from_env("HUMAN_IN_THE_LOOP_PORT")
 localhost = load_from_env("LOCALHOST")
 
 
+class HumanRequest(TypedDict):
+    prompt: str
+    task_id: str
+
+
 # # human in the loop function
 def human_service_factory(
-    human_input_request_queue: asyncio.Queue[Dict[str, str]],
-    human_input_result_queue: asyncio.Queue[str],
+    human_input_request_queue: queue.Queue[Dict[str, str]],
+    human_input_result_queue: queue.Queue[str],
 ) -> HumanService:
     async def human_input_fn(prompt: str, task_id: str, **kwargs: Any) -> str:
         logger.info("human input fn invoked.")
-        await human_input_request_queue.put(
-            {"prompt": prompt, "task_id": task_id}
-        )
+        human_input_request_queue.put({"prompt": prompt, "task_id": task_id})
         logger.info("placed new prompt in queue.")
 
         # poll until human answer is stored
         async def _poll_for_human_input_result() -> str:
-            return await human_input_result_queue.get()
+            return human_input_result_queue.get()
 
         try:
             human_input = await asyncio.wait_for(
@@ -67,5 +71,9 @@ def human_service_factory(
 
 
 # used by control plane
-human_service = human_service_factory(asyncio.Queue(), asyncio.Queue())
+human_input_request_queue = queue.Queue()
+human_input_result_queue = queue.Queue()
+human_service = human_service_factory(
+    human_input_request_queue, human_input_result_queue
+)
 human_component = ServiceComponent.from_service_definition(human_service)
