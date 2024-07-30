@@ -146,17 +146,22 @@ with left:
 
 def chat_window() -> None:
     with st.sidebar:
-        messages_container = st.container(height=500)
-        with messages_container:
-            if st.session_state.current_task:
-                messages = [
-                    m.dict() for m in st.session_state.current_task.history
-                ]
-                for message in messages:
-                    with st.chat_message(message["role"]):
-                        st.markdown(message["content"])
-            else:
-                st.empty()
+
+        @st.experimental_fragment(run_every="5s")
+        def show_chat_window() -> None:
+            messages_container = st.container(height=500)
+            with messages_container:
+                if st.session_state.current_task:
+                    messages = [
+                        m.dict() for m in st.session_state.current_task.history
+                    ]
+                    for message in messages:
+                        with st.chat_message(message["role"]):
+                            st.markdown(message["content"])
+                else:
+                    st.empty()
+
+        show_chat_window()
 
         if _ := st.chat_input("What is up?"):
             pass
