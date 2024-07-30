@@ -5,7 +5,12 @@ from typing import Any, Generator, List, Optional
 
 import streamlit as st
 from llama_agents import LlamaAgentsClient
+from llama_agents.types import TaskResult
 from llama_index.core.llms import ChatMessage, ChatResponseGen
+
+from snowflake_cybersyn_demo.additional_services.human_in_the_loop import (
+    HumanRequest,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -41,14 +46,14 @@ class Controller:
         self._step_interval = 0.5
         self._timeout = 60
 
-    def _llama_index_stream_wrapper(
+    def llama_index_stream_wrapper(
         self,
         llama_index_stream: ChatResponseGen,
     ) -> Generator[str, Any, Any]:
         for chunk in llama_index_stream:
             yield chunk.delta
 
-    def _handle_task_submission(self) -> None:
+    def handle_task_submission(self) -> None:
         """Handle the user submitted message. Clear task submission box, and
         add the new task to the submitted list.
         """
@@ -73,3 +78,59 @@ class Controller:
         st.session_state.submitted_tasks.append(task)
         logger.info("Added task to submitted queue")
         st.session_state.task_input = ""
+
+    def update_associated_task_to_completed_status(
+        self,
+        task_res: TaskResult,
+    ) -> None:
+        """
+        Update task status to completed for received task result.
+
+        Update session_state lists as well.
+        """
+        try:
+            task_list = st.session_state.get("submitted_tasks")
+            print(f"submitted tasks: {task_list}")
+            ix, task = next(
+                (ix, t)
+                for ix, t in enumerate(task_list)
+                if t.task_id == task_res.task_id
+            )
+            task.status = TaskStatus.COMPLETED
+            task.chat_history.append(
+                ChatMessage(role="assistant", content=task_res.result)
+            )
+            del task_list[ix]
+            st.session_state.submitted_tasks = task_list
+            st.session_state.completed_tasks.append(task)
+            logger.info("updated submitted and completed tasks list.")
+        except StopIteration:
+            raise ValueError("Cannot find task in list of tasks.")
+
+    def update_associated_task_to_human_required_status(
+        self,
+        human_req: HumanRequest,
+    ) -> None:
+        """
+        Update task status to human_required for received task request.
+
+        Update session_state lists as well.
+        """
+        try:
+            task_list = st.session_state.get("submitted_tasks")
+            print(f"submitted tasks: {task_list}")
+            ix, task = next(
+                (ix, t)
+                for ix, t in enumerate(task_list)
+                if t.task_id == human_req["task_id"]
+            )
+            task.status = TaskStatus.HUMAN_REQUIRED
+            task.chat_history.append(
+                ChatMessage(role="assistant", content=human_req["prompt"])
+            )
+            del task_list[ix]
+            st.session_state.submitted_tasks = task_list
+            st.session_state.human_required_tasks.append(task)
+            logger.info("updated submitted and human required tasks list.")
+        except StopIteration:
+            raise ValueError("Cannot find task in list of tasks.")

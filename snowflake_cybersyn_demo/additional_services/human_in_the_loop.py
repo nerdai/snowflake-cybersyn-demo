@@ -1,7 +1,7 @@
 import asyncio
 import logging
 import queue
-from typing import Any, Dict, TypedDict
+from typing import Any, TypedDict
 
 from llama_agents import HumanService, ServiceComponent
 from llama_agents.message_queues.rabbitmq import RabbitMQMessageQueue
@@ -28,8 +28,8 @@ class HumanRequest(TypedDict):
 
 
 # # human in the loop function
-human_input_request_queue = queue.Queue()
-human_input_result_queue = queue.Queue()
+human_input_request_queue: queue.Queue[HumanRequest] = queue.Queue()
+human_input_result_queue: queue.Queue[str] = queue.Queue()
 
 
 async def human_input_fn(prompt: str, task_id: str, **kwargs: Any) -> str:

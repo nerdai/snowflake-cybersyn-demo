@@ -3,10 +3,11 @@ import logging
 import queue
 import threading
 import time
-from typing import Optional
+from typing import Optional, Tuple
 
 import pandas as pd
 import streamlit as st
+from llama_agents.types import TaskResult
 from llama_index.core.llms import ChatMessage
 from llama_index.llms.openai import OpenAI
 
@@ -14,10 +15,7 @@ from snowflake_cybersyn_demo.additional_services.human_in_the_loop import (
     HumanRequest,
     HumanService,
 )
-from snowflake_cybersyn_demo.apps.controller import (
-    Controller,
-    TaskStatus,
-)
+from snowflake_cybersyn_demo.apps.controller import Controller
 from snowflake_cybersyn_demo.apps.final_task_consumer import FinalTaskConsumer
 
 logger = logging.getLogger(__name__)
@@ -31,7 +29,15 @@ st.set_page_config(layout="wide")
 
 
 @st.cache_resource
-def startup():
+def startup() -> (
+    Tuple[
+        Controller,
+        queue.Queue[TaskResult],
+        FinalTaskConsumer,
+        queue.Queue[HumanRequest],
+        queue.Queue[str],
+    ]
+):
     from snowflake_cybersyn_demo.additional_services.human_in_the_loop import (
         human_input_request_queue,
         human_input_result_queue,
@@ -39,20 +45,19 @@ def startup():
         message_queue,
     )
 
-    completed_tasks_queue = queue.Queue()
     controller = Controller(
         control_plane_host=control_plane_host,
         control_plane_port=control_plane_port,
     )
 
-    async def start_consuming_human_tasks(human_service: HumanService):
-        human_task_consuming_callable = await message_queue.register_consumer(
-            human_service.as_consumer()
+    async def start_consuming_human_tasks(hs: HumanService) -> None:
+        consuming_callable = await message_queue.register_consumer(
+            hs.as_consumer()
         )
 
-        ht_task = asyncio.create_task(human_task_consuming_callable())
+        ht_task = asyncio.create_task(consuming_callable())  # noqa: F841
 
-        launch_task = asyncio.create_task(human_service.processing_loop())
+        pl_task = asyncio.create_task(hs.processing_loop())  # noqa: F841
 
         await asyncio.Future()
 
@@ -64,12 +69,15 @@ def startup():
     )
     hr_thread.start()
 
+    completed_tasks_queue: queue.Queue[TaskResult] = queue.Queue()
     final_task_consumer = FinalTaskConsumer(
         message_queue=message_queue,
         completed_tasks_queue=completed_tasks_queue,
     )
 
-    async def start_consuming_finalized_tasks(final_task_consumer):
+    async def start_consuming_finalized_tasks(
+        final_task_consumer: FinalTaskConsumer,
+    ) -> None:
         final_task_consuming_callable = (
             await final_task_consumer.register_to_message_queue()
         )
@@ -129,7 +137,7 @@ with left:
         "Task input",
         placeholder="Enter a task input.",
         key="task_input",
-        on_change=controller._handle_task_submission,
+        on_change=controller.handle_task_submission,
     )
 
 with right:
@@ -152,12 +160,16 @@ with right:
                     for m in st.session_state.messages
                 ]
             )
-            response = st.write_stream(controller._llama_index_stream_wrapper(stream))
-        st.session_state.messages.append({"role": "assistant", "content": response})
+            response = st.write_stream(
+                controller.llama_index_stream_wrapper(stream)
+            )
+        st.session_state.messages.append(
+            {"role": "assistant", "content": response}
+        )
 
 
 @st.experimental_fragment(run_every="30s")
-def task_df():
+def task_df() -> None:
     st.text("Task Status")
     st.button("Refresh")
     tasks = (
@@ -183,7 +195,7 @@ task_df()
 
 
 @st.experimental_fragment(run_every=5)
-def process_completed_tasks(completed_queue: queue.Queue):
+def process_completed_tasks(completed_queue: queue.Queue) -> None:
     task_res: Optional[TaskResult] = None
     try:
         task_res = completed_queue.get_nowait()
@@ -192,24 +204,9 @@ def process_completed_tasks(completed_queue: queue.Queue):
         logger.info("task result queue is empty.")
 
     if task_res:
-        try:
-            task_list = st.session_state.get("submitted_tasks")
-            print(f"submitted tasks: {task_list}")
-            ix, task = next(
-                (ix, t)
-                for ix, t in enumerate(task_list)
-                if t.task_id == task_res.task_id
-            )
-            task.status = TaskStatus.COMPLETED
-            task.chat_history.append(
-                ChatMessage(role="assistant", content=task_res.result)
-            )
-            del task_list[ix]
-            st.session_state.submitted_tasks = task_list
-            st.session_state.completed_tasks.append(task)
-            logger.info("updated submitted and completed tasks list.")
-        except StopIteration:
-            raise ValueError("Cannot find task in list of tasks.")
+        controller.update_associated_task_to_completed_status(
+            task_res=task_res
+        )
 
 
 process_completed_tasks(completed_queue=completed_tasks_queue)
@@ -218,7 +215,7 @@ process_completed_tasks(completed_queue=completed_tasks_queue)
 @st.experimental_fragment(run_every=5)
 def process_human_input_requests(
     human_requests_queue: queue.Queue[HumanRequest],
-):
+) -> None:
     human_req: Optional[HumanRequest] = None
     try:
         human_req = human_requests_queue.get_nowait()
@@ -227,24 +224,9 @@ def process_human_input_requests(
         logger.info("human request queue is empty.")
 
     if human_req:
-        try:
-            task_list = st.session_state.get("submitted_tasks")
-            print(f"submitted tasks: {task_list}")
-            ix, task = next(
-                (ix, t)
-                for ix, t in enumerate(task_list)
-                if t.task_id == human_req["task_id"]
-            )
-            task.status = TaskStatus.COMPLETED
-            task.chat_history.append(
-                ChatMessage(role="assistant", content=human_req["prompt"])
-            )
-            del task_list[ix]
-            st.session_state.submitted_tasks = task_list
-            st.session_state.human_required_tasks.append(task)
-            logger.info("updated submitted and human required tasks list.")
-        except StopIteration:
-            raise ValueError("Cannot find task in list of tasks.")
+        controller.update_associated_task_to_human_required_status(
+            human_req=human_req
+        )
 
 
 process_human_input_requests(human_requests_queue=human_input_request_queue)
