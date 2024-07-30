@@ -8,7 +8,6 @@ from typing import Optional, Tuple
 import pandas as pd
 import streamlit as st
 from llama_agents.types import TaskResult
-from llama_index.core.llms import ChatMessage
 from llama_index.llms.openai import OpenAI
 
 from snowflake_cybersyn_demo.additional_services.human_in_the_loop import (
@@ -128,6 +127,10 @@ if "tasks" not in st.session_state:
     st.session_state["tasks"] = []
 if "consuming" not in st.session_state:
     st.session_state.consuming = False
+if "messages" not in st.session_state:
+    st.session_state.messages = []
+if "current_task" not in st.session_state:
+    st.session_state.current_task = None
 
 
 left, right = st.columns([1, 2], vertical_alignment="bottom")
@@ -140,32 +143,35 @@ with left:
         on_change=controller.handle_task_submission,
     )
 
-with right:
-    if "messages" not in st.session_state:
-        st.session_state.messages = []
 
-    for message in st.session_state.messages:
-        with st.chat_message(message["role"]):
-            st.markdown(message["content"])
+with right:
+    messages_container = st.container(height=300)
+    with messages_container:
+        if st.session_state.current_task:
+            messages = [
+                m.dict() for m in st.session_state.current_task.history
+            ]
+            for message in messages:
+                with st.chat_message(message["role"]):
+                    st.markdown(message["content"])
+        else:
+            st.empty()
 
     if prompt := st.chat_input("What is up?"):
-        st.session_state.messages.append({"role": "user", "content": prompt})
-        with st.chat_message("user"):
-            st.markdown(prompt)
+        pass
+        #     st.session_state.messages.append({"role": "user", "content": prompt})
+        #     with st.chat_message("user"):
+        #         st.markdown(prompt)
 
-        with st.chat_message("assistant"):
-            stream = llm.stream_chat(
-                messages=[
-                    ChatMessage(role=m["role"], content=m["content"])
-                    for m in st.session_state.messages
-                ]
-            )
-            response = st.write_stream(
-                controller.llama_index_stream_wrapper(stream)
-            )
-        st.session_state.messages.append(
-            {"role": "assistant", "content": response}
-        )
+        #     with st.chat_message("assistant"):
+        #         stream = llm.stream_chat(
+        #             messages=[
+        #                 ChatMessage(role=m["role"], content=m["content"])
+        #                 for m in st.session_state.messages
+        #             ]
+        #         )
+        #         response = st.write_stream(controller.llama_index_stream_wrapper(stream))
+        #     st.session_state.messages.append({"role": "assistant", "content": response})
 
 
 @st.experimental_fragment(run_every="30s")
@@ -178,17 +184,28 @@ def task_df() -> None:
         + [t.input for t in st.session_state.completed_tasks]
     )
 
+    task_ids = (
+        [t.task_id for t in st.session_state.submitted_tasks]
+        + [t.task_id for t in st.session_state.human_required_tasks]
+        + [t.task_id for t in st.session_state.completed_tasks]
+    )
+
     status = (
         ["submitted"] * len(st.session_state.submitted_tasks)
         + ["human_required"] * len(st.session_state.human_required_tasks)
         + ["completed"] * len(st.session_state.completed_tasks)
     )
-    data = {"tasks": tasks, "status": status}
+    data = {"task_id": task_ids, "input": tasks, "status": status}
     logger.info(f"data: {data}")
     df = pd.DataFrame(data)
     st.dataframe(
-        df, selection_mode="single-row", use_container_width=True
-    )  # Same as st.write(df)
+        df,
+        hide_index=True,
+        selection_mode="single-row",
+        use_container_width=True,
+        on_select=controller.get_task_selection_handler(df),
+        key="task_df",
+    )
 
 
 task_df()

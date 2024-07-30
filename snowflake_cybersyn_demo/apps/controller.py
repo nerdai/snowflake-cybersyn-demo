@@ -1,8 +1,10 @@
 import logging
+import time
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Generator, List, Optional
+from typing import Any, Callable, Generator, List, Optional
 
+import pandas as pd
 import streamlit as st
 from llama_agents import LlamaAgentsClient
 from llama_agents.types import TaskResult
@@ -27,7 +29,7 @@ class TaskModel:
     input: str
     status: TaskStatus
     prompt: Optional[str] = None
-    chat_history: List[ChatMessage] = field(default_factory=list)
+    history: List[ChatMessage] = field(default_factory=list)
 
 
 class Controller:
@@ -66,7 +68,7 @@ class Controller:
         task = TaskModel(
             task_id=task_id,
             input=task_input,
-            chat_history=[
+            history=[
                 ChatMessage(role="user", content=task_input),
                 ChatMessage(
                     role="assistant",
@@ -77,6 +79,7 @@ class Controller:
         )
         st.session_state.submitted_tasks.append(task)
         logger.info("Added task to submitted queue")
+        st.session_state.current_task = task
         st.session_state.task_input = ""
 
     def update_associated_task_to_completed_status(
@@ -97,7 +100,7 @@ class Controller:
                 if t.task_id == task_res.task_id
             )
             task.status = TaskStatus.COMPLETED
-            task.chat_history.append(
+            task.history.append(
                 ChatMessage(role="assistant", content=task_res.result)
             )
             del task_list[ix]
@@ -125,7 +128,7 @@ class Controller:
                 if t.task_id == human_req["task_id"]
             )
             task.status = TaskStatus.HUMAN_REQUIRED
-            task.chat_history.append(
+            task.history.append(
                 ChatMessage(role="assistant", content=human_req["prompt"])
             )
             del task_list[ix]
@@ -134,3 +137,38 @@ class Controller:
             logger.info("updated submitted and human required tasks list.")
         except StopIteration:
             raise ValueError("Cannot find task in list of tasks.")
+
+    def get_task_selection_handler(self, task_df: pd.DataFrame) -> Callable:
+        def task_selection_handler() -> None:
+            dataframe_selection_state = st.session_state.task_df["selection"][
+                "rows"
+            ]
+
+            if not dataframe_selection_state:
+                st.session_state.current_task = None
+                time.sleep(0.1)
+                logger.info("Clear chat after de-selection.")
+                logger.info(f"messages: {st.session_state.messages}")
+                return
+
+            # display chat history in console
+            selected_row = st.session_state.task_df["selection"]["rows"][0]
+            selection = task_df.iloc[selected_row]
+            task_status = selection["status"]
+            task_id = selection["task_id"]
+            if task_status == TaskStatus.COMPLETED:
+                task_list = st.session_state.completed_tasks
+            elif task_status == TaskStatus.HUMAN_REQUIRED:
+                task_list = st.session_state.human_required_tasks
+            else:
+                task_list = st.session_state.submitted_tasks
+
+            try:
+                task = next(t for t in task_list if t.task_id == task_id)
+                st.session_state.current_task = task
+                logger.info("Displaying selected tasks history.")
+                logger.info(f"messages: {st.session_state.messages}")
+            except StopIteration:
+                pass  # handle this better
+
+        return task_selection_handler
