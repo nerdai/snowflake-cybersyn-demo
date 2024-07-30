@@ -28,52 +28,44 @@ class HumanRequest(TypedDict):
 
 
 # # human in the loop function
-def human_service_factory(
-    human_input_request_queue: queue.Queue[Dict[str, str]],
-    human_input_result_queue: queue.Queue[str],
-) -> HumanService:
-    async def human_input_fn(prompt: str, task_id: str, **kwargs: Any) -> str:
-        logger.info("human input fn invoked.")
-        human_input_request_queue.put({"prompt": prompt, "task_id": task_id})
-        logger.info("placed new prompt in queue.")
-
-        # poll until human answer is stored
-        async def _poll_for_human_input_result() -> str:
-            return human_input_result_queue.get()
-
-        try:
-            human_input = await asyncio.wait_for(
-                _poll_for_human_input_result(),
-                timeout=6000,
-            )
-            logger.info(f"Recieved human input: {human_input}")
-        except (
-            asyncio.exceptions.TimeoutError,
-            asyncio.TimeoutError,
-            TimeoutError,
-        ):
-            logger.info(f"Timeout reached for tool_call with prompt {prompt}")
-            human_input = "Something went wrong."
-
-        return human_input
-
-    # create our multi-agent framework components
-    message_queue = RabbitMQMessageQueue(
-        url=f"amqp://{message_queue_username}:{message_queue_password}@{message_queue_host}:{message_queue_port}/"
-    )
-    human_service = HumanService(
-        message_queue=message_queue,
-        description="Answers queries about math.",
-        fn_input=human_input_fn,
-        human_input_prompt="{input_str}",
-    )
-    return human_service
-
-
-# used by control plane
 human_input_request_queue = queue.Queue()
 human_input_result_queue = queue.Queue()
-human_service = human_service_factory(
-    human_input_request_queue, human_input_result_queue
+
+
+async def human_input_fn(prompt: str, task_id: str, **kwargs: Any) -> str:
+    logger.info("human input fn invoked.")
+    human_input_request_queue.put({"prompt": prompt, "task_id": task_id})
+    logger.info("placed new prompt in queue.")
+
+    # poll until human answer is stored
+    async def _poll_for_human_input_result() -> str:
+        return human_input_result_queue.get()
+
+    try:
+        human_input = await asyncio.wait_for(
+            _poll_for_human_input_result(),
+            timeout=6000,
+        )
+        logger.info(f"Recieved human input: {human_input}")
+    except (
+        asyncio.exceptions.TimeoutError,
+        asyncio.TimeoutError,
+        TimeoutError,
+    ):
+        logger.info(f"Timeout reached for tool_call with prompt {prompt}")
+        human_input = "Something went wrong."
+
+    return human_input
+
+
+# create our multi-agent framework components
+message_queue = RabbitMQMessageQueue(
+    url=f"amqp://{message_queue_username}:{message_queue_password}@{message_queue_host}:{message_queue_port}/"
+)
+human_service = HumanService(
+    message_queue=message_queue,
+    description="Answers queries about math.",
+    fn_input=human_input_fn,
+    human_input_prompt="{input_str}",
 )
 human_component = ServiceComponent.from_service_definition(human_service)

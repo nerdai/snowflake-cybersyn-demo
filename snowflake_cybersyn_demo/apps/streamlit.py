@@ -16,7 +16,6 @@ from snowflake_cybersyn_demo.additional_services.human_in_the_loop import (
 )
 from snowflake_cybersyn_demo.apps.controller import (
     Controller,
-    TaskResult,
     TaskStatus,
 )
 from snowflake_cybersyn_demo.apps.final_task_consumer import FinalTaskConsumer
@@ -37,6 +36,7 @@ def startup():
         human_input_request_queue,
         human_input_result_queue,
         human_service,
+        message_queue,
     )
 
     completed_tasks_queue = queue.Queue()
@@ -46,10 +46,8 @@ def startup():
     )
 
     async def start_consuming_human_tasks(human_service: HumanService):
-        human_task_consuming_callable = (
-            await human_service.message_queue.register_consumer(
-                human_service.as_consumer()
-            )
+        human_task_consuming_callable = await message_queue.register_consumer(
+            human_service.as_consumer()
         )
 
         ht_task = asyncio.create_task(human_task_consuming_callable())
@@ -67,7 +65,7 @@ def startup():
     hr_thread.start()
 
     final_task_consumer = FinalTaskConsumer(
-        message_queue=human_service.message_queue,
+        message_queue=message_queue,
         completed_tasks_queue=completed_tasks_queue,
     )
 
@@ -154,12 +152,8 @@ with right:
                     for m in st.session_state.messages
                 ]
             )
-            response = st.write_stream(
-                controller._llama_index_stream_wrapper(stream)
-            )
-        st.session_state.messages.append(
-            {"role": "assistant", "content": response}
-        )
+            response = st.write_stream(controller._llama_index_stream_wrapper(stream))
+        st.session_state.messages.append({"role": "assistant", "content": response})
 
 
 @st.experimental_fragment(run_every="30s")
