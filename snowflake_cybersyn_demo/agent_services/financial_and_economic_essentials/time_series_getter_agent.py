@@ -1,4 +1,5 @@
 import json
+from typing import Dict, List
 
 from llama_agents.message_queues.rabbitmq import RabbitMQMessageQueue
 from llama_index.agent.openai import OpenAIAgent
@@ -92,6 +93,28 @@ def get_time_series_of_good(good: str) -> str:
     results_str = json.dumps(results, indent=4)
 
     return results_str
+
+
+def perform_price_aggregation(json_str: str) -> str:
+    """Perform price aggregation on the time series data."""
+    timeseries_data = json.loads(json_str)
+    good = timeseries_data[0]["good"]
+
+    new_time_series_data: Dict[str, List[float]] = {}
+    for el in timeseries_data:
+        date = el["date"]
+        price = el["price"]
+        if date in new_time_series_data:
+            new_time_series_data[date].append(float(price))
+        else:
+            new_time_series_data[date] = [float(price)]
+
+    reduced_time_series_data = [
+        {"good": good, "date": date, "price": sum(prices) / len(prices)}
+        for date, prices in new_time_series_data.items()
+    ]
+
+    return json.dumps(reduced_time_series_data, indent=4)
 
 
 goods_getter_tool = FunctionTool.from_defaults(
