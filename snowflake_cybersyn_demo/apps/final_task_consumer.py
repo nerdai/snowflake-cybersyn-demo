@@ -1,25 +1,23 @@
+import logging
 import queue
 from typing import Any
 
-from llama_agents import (
-    CallableMessageConsumer,
-    QueueMessage,
-)
-from llama_agents.message_queues.base import BaseMessageQueue
+from llama_agents import CallableMessageConsumer, QueueMessage
 from llama_agents.message_consumers.base import (
     BaseMessageQueueConsumer,
     StartConsumingCallable,
 )
+from llama_agents.message_queues.base import BaseMessageQueue
 from llama_agents.types import ActionTypes, TaskResult
-
-import logging
 
 logger = logging.getLogger(__name__)
 
 
 class FinalTaskConsumer:
     def __init__(
-        self, message_queue: BaseMessageQueue, completed_tasks_queue: queue.Queue
+        self,
+        message_queue: BaseMessageQueue,
+        completed_tasks_queue: queue.Queue,
     ):
         self.message_queue = message_queue
         self.completed_tasks_queue = completed_tasks_queue
