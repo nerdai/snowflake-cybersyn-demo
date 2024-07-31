@@ -18,6 +18,10 @@ control_plane_host = load_from_env("CONTROL_PLANE_HOST")
 control_plane_port = load_from_env("CONTROL_PLANE_PORT")
 funny_agent_host = load_from_env("FUNNY_AGENT_HOST")
 funny_agent_port = load_from_env("FUNNY_AGENT_PORT")
+snowflake_user = load_from_env("SNOWFLAKE_USERNAME")
+snowflake_password = load_from_env("SNOWFLAKE_PASSWORD")
+snowflake_account = load_from_env("SNOWFLAKE_ACCOUNT")
+snowflake_role = load_from_env("SNOWFLAKE_ROLE")
 localhost = load_from_env("LOCALHOST")
 
 
@@ -69,13 +73,13 @@ def get_time_series_of_good(good: str) -> str:
     """Create a time series of the average price paid for a good nationwide starting in 2021."""
     query = SQL_QUERY_TEMPLATE.format(good=good)
     url = URL(
-        account="AZXOMEC-NZB11223",
-        user="NERDAILLAMAINDEX",
-        password="b307gJ5YzR8k",
+        account=snowflake_account,
+        user=snowflake_user,
+        password=snowflake_password,
         database="FINANCIAL__ECONOMIC_ESSENTIALS",
         schema="CYBERSYN",
         warehouse="COMPUTE_WH",
-        role="ACCOUNTADMIN",
+        role=snowflake_role,
     )
 
     engine = create_engine(url)

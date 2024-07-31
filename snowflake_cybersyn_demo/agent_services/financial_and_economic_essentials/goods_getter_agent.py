@@ -15,6 +15,10 @@ control_plane_host = load_from_env("CONTROL_PLANE_HOST")
 control_plane_port = load_from_env("CONTROL_PLANE_PORT")
 funny_agent_host = load_from_env("FUNNY_AGENT_HOST")
 funny_agent_port = load_from_env("FUNNY_AGENT_PORT")
+snowflake_user = load_from_env("SNOWFLAKE_USERNAME")
+snowflake_password = load_from_env("SNOWFLAKE_PASSWORD")
+snowflake_account = load_from_env("SNOWFLAKE_ACCOUNT")
+snowflake_role = load_from_env("SNOWFLAKE_ROLE")
 localhost = load_from_env("LOCALHOST")
 
 
@@ -46,13 +50,13 @@ def get_list_of_candidate_goods(good: str) -> str:
     The list of goods is represented as a string separated by '\n'."""
     query = SQL_QUERY_TEMPLATE.format(good=good)
     url = URL(
-        account="AZXOMEC-NZB11223",
-        user="NERDAILLAMAINDEX",
-        password="b307gJ5YzR8k",
+        account=snowflake_account,
+        user=snowflake_user,
+        password=snowflake_password,
         database="FINANCIAL__ECONOMIC_ESSENTIALS",
         schema="CYBERSYN",
         warehouse="COMPUTE_WH",
-        role="ACCOUNTADMIN",
+        role=snowflake_role,
     )
 
     engine = create_engine(url)
@@ -63,13 +67,16 @@ def get_list_of_candidate_goods(good: str) -> str:
         connection.close()
 
     # process
-    results = [str(el[0]) for el in results]
+    results = [f"{ix+1}. {str(el[0])}" for ix, el in enumerate(results)]
+    results_str = "List of goods that exist in the database:\n\n"
     results_str = "\n".join(results)
 
     return results_str
 
 
-goods_getter_tool = FunctionTool.from_defaults(fn=get_list_of_candidate_goods)
+goods_getter_tool = FunctionTool.from_defaults(
+    fn=get_list_of_candidate_goods, return_direct=True
+)
 agent = OpenAIAgent.from_tools(
     [goods_getter_tool],
     system_prompt=AGENT_SYSTEM_PROMPT,
