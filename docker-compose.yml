@@ -64,5 +64,57 @@ services:
       retries: 5
       start_period: 20s
       timeout: 10s
+  goods_getter_agent:
+    image: snowflake_cybersyn_demo:latest
+    command: sh -c "python -m snowflake_cybersyn_demo.agent_services.financial_and_economic_essentials.goods_getter_agent"
+    env_file:
+      - .env.docker
+    ports:
+      - "8003:8003"
+    volumes:
+      - ./snowflake_cybersyn_demo:/app/snowflake_cybersyn_demo # load local code change to container without the need of rebuild
+      - ./data:/app/data
+      - ./logging.ini:/app/logging.ini
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+      control_plane:
+        condition: service_healthy
+    platform: linux/amd64
+    build:
+      context: .
+      dockerfile: ./Dockerfile
+    healthcheck:
+      test: wget --no-verbose --tries=1 http://0.0.0.0:8003/is_worker_running || exit 1
+      interval: 30s
+      retries: 5
+      start_period: 20s
+      timeout: 10s
+  time_series_getter_agent:
+    image: snowflake_cybersyn_demo:latest
+    command: sh -c "python -m snowflake_cybersyn_demo.agent_services.financial_and_economic_essentials.time_series_getter_agent"
+    env_file:
+      - .env.docker
+    ports:
+      - "8004:8004"
+    volumes:
+      - ./snowflake_cybersyn_demo:/app/snowflake_cybersyn_demo # load local code change to container without the need of rebuild
+      - ./data:/app/data
+      - ./logging.ini:/app/logging.ini
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+      control_plane:
+        condition: service_healthy
+    platform: linux/amd64
+    build:
+      context: .
+      dockerfile: ./Dockerfile
+    healthcheck:
+      test: wget --no-verbose --tries=1 http://0.0.0.0:8004/is_worker_running || exit 1
+      interval: 30s
+      retries: 5
+      start_period: 20s
+      timeout: 10s
 volumes:
   rabbitmq:

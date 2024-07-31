@@ -1,3 +1,7 @@
+import asyncio
+
+import uvicorn
+from llama_agents import AgentService, ServiceComponent
 from llama_agents.message_queues.rabbitmq import RabbitMQMessageQueue
 from llama_index.agent.openai import OpenAIAgent
 from llama_index.core.tools import FunctionTool
@@ -13,8 +17,8 @@ message_queue_username = load_from_env("RABBITMQ_DEFAULT_USER")
 message_queue_password = load_from_env("RABBITMQ_DEFAULT_PASS")
 control_plane_host = load_from_env("CONTROL_PLANE_HOST")
 control_plane_port = load_from_env("CONTROL_PLANE_PORT")
-funny_agent_host = load_from_env("FUNNY_AGENT_HOST")
-funny_agent_port = load_from_env("FUNNY_AGENT_PORT")
+agent_host = load_from_env("GOODS_GETTER_AGENT_HOST")
+agent_port = load_from_env("GOODS_GETTER_AGENT_PORT")
 snowflake_user = load_from_env("SNOWFLAKE_USERNAME")
 snowflake_password = load_from_env("SNOWFLAKE_PASSWORD")
 snowflake_account = load_from_env("SNOWFLAKE_ACCOUNT")
@@ -83,3 +87,43 @@ agent = OpenAIAgent.from_tools(
     llm=OpenAI(model="gpt-4o-mini"),
     verbose=True,
 )
+
+agent_server = AgentService(
+    agent=agent,
+    message_queue=message_queue,
+    description="Retrieves the goods that exist in the database that match the user's query.",
+    service_name="goods_getter_agent",
+    host=agent_host,
+    port=int(agent_port) if agent_port else None,
+)
+agent_component = ServiceComponent.from_service_definition(agent_server)
+
+app = agent_server._app
+
+
+# launch
+async def launch() -> None:
+    # register to message queue
+    start_consuming_callable = await agent_server.register_to_message_queue()
+    _ = asyncio.create_task(start_consuming_callable())
+
+    # register to control plane
+    await agent_server.register_to_control_plane(
+        control_plane_url=(
+            f"http://{control_plane_host}:{control_plane_port}"
+            if control_plane_port
+            else f"http://{control_plane_host}"
+        )
+    )
+
+    cfg = uvicorn.Config(
+        agent_server._app,
+        host=localhost,
+        port=agent_server.port,
+    )
+    server = uvicorn.Server(cfg)
+    await server.serve()
+
+
+if __name__ == "__main__":
+    asyncio.run(launch())

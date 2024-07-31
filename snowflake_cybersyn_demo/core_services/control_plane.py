@@ -11,6 +11,18 @@ from snowflake_cybersyn_demo.additional_services.human_in_the_loop import (
     human_component,
     human_service,
 )
+from snowflake_cybersyn_demo.agent_services.financial_and_economic_essentials.goods_getter_agent import (
+    agent_component as goods_getter_component,
+)
+from snowflake_cybersyn_demo.agent_services.financial_and_economic_essentials.goods_getter_agent import (
+    agent_server as goods_getter_server,
+)
+from snowflake_cybersyn_demo.agent_services.financial_and_economic_essentials.time_series_getter_agent import (
+    agent_component as time_series_getter_component,
+)
+from snowflake_cybersyn_demo.agent_services.financial_and_economic_essentials.time_series_getter_agent import (
+    agent_server as time_series_getter_server,
+)
 from snowflake_cybersyn_demo.agent_services.funny_agent import (
     agent_component,
     agent_server,
@@ -35,8 +47,18 @@ pipeline = QueryPipeline(
     chain=[
         RouterComponent(
             selector=PydanticSingleSelector.from_defaults(llm=OpenAI()),
-            choices=[agent_server.description, human_service.description],
-            components=[agent_component, human_component],
+            choices=[
+                agent_server.description,
+                human_service.description,
+                goods_getter_server.description,
+                time_series_getter_server.description,
+            ],
+            components=[
+                agent_component,
+                human_component,
+                goods_getter_component,
+                time_series_getter_component,
+            ],
         )
     ]
 )
