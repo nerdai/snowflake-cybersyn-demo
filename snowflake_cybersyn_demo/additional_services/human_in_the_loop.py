@@ -17,8 +17,6 @@ message_queue_username = load_from_env("RABBITMQ_DEFAULT_USER")
 message_queue_password = load_from_env("RABBITMQ_DEFAULT_PASS")
 control_plane_host = load_from_env("CONTROL_PLANE_HOST")
 control_plane_port = load_from_env("CONTROL_PLANE_PORT")
-human_in_the_loop_host = load_from_env("HUMAN_IN_THE_LOOP_HOST")
-human_in_the_loop_port = load_from_env("HUMAN_IN_THE_LOOP_PORT")
 localhost = load_from_env("LOCALHOST")
 
 
