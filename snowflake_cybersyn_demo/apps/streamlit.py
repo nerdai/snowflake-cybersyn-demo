@@ -50,6 +50,15 @@ def startup() -> (
     )
 
     async def start_consuming_human_tasks(hs: HumanService) -> None:
+        # register to control plane
+        await hs.register_to_control_plane(
+            control_plane_url=(
+                f"http://{control_plane_host}:{control_plane_port}"
+                if control_plane_port
+                else f"http://{control_plane_host}"
+            )
+        )
+
         consuming_callable = await message_queue.register_consumer(
             hs.as_consumer()
         )

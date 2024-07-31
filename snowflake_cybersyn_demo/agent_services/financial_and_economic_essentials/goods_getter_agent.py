@@ -72,8 +72,8 @@ def get_list_of_candidate_goods(good: str) -> str:
 
     # process
     results = [f"{ix+1}. {str(el[0])}" for ix, el in enumerate(results)]
-    results_str = "List of goods that exist in the database:\n\n"
-    results_str = "\n".join(results)
+    results_str = "List of goods that exist in the database are provided below. Please select one.:\n\n"
+    results_str += "\n".join(results)
 
     return results_str
 

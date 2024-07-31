@@ -62,7 +62,7 @@ message_queue = RabbitMQMessageQueue(
 )
 human_service = HumanService(
     message_queue=message_queue,
-    description="Answers queries about math.",
+    description="For human input.",
     fn_input=human_input_fn,
     human_input_prompt="{input_str}",
 )
