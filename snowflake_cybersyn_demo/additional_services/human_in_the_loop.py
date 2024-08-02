@@ -37,7 +37,15 @@ async def human_input_fn(prompt: str, task_id: str, **kwargs: Any) -> str:
 
     # poll until human answer is stored
     async def _poll_for_human_input_result() -> str:
-        return human_input_result_queue.get()
+        human_input = None
+        while human_input is None:
+            try:
+                human_input = human_input_result_queue.get_nowait()
+            except queue.Empty:
+                human_input = None
+            await asyncio.sleep(0.1)
+        logger.info("human input recieved")
+        return human_input
 
     try:
         human_input = await asyncio.wait_for(

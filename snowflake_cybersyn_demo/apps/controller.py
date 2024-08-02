@@ -1,4 +1,5 @@
 import logging
+import queue
 import time
 from dataclasses import dataclass, field
 from enum import Enum
@@ -78,6 +79,18 @@ class Controller:
         st.session_state.current_task = task
         st.session_state.task_input = ""
 
+    def get_human_input_handler(
+        self, human_input_result_queue: queue.Queue
+    ) -> Callable:
+        def human_input_handler() -> None:
+            human_input = st.session_state.human_input
+            if human_input == "":
+                return
+            human_input_result_queue.put_nowait(human_input)
+            logger.info("pushed human input to human input result queue.")
+
+        return human_input_handler
+
     def update_associated_task_to_completed_status(
         self,
         task_res: TaskResult,
@@ -87,24 +100,40 @@ class Controller:
 
         Update session_state lists as well.
         """
-        try:
-            task_list = st.session_state.get("submitted_tasks")
-            print(f"submitted tasks: {task_list}")
-            ix, task = next(
-                (ix, t)
-                for ix, t in enumerate(task_list)
-                if t.task_id == task_res.task_id
+
+        def remove_task_from_list(
+            task_list: List[TaskModel],
+        ) -> List[TaskModel]:
+            try:
+                ix, task = next(
+                    (ix, t)
+                    for ix, t in enumerate(task_list)
+                    if t.task_id == task_res.task_id
+                )
+                task.status = TaskStatus.COMPLETED
+                task.history.append(
+                    ChatMessage(role="assistant", content=task_res.result)
+                )
+                del task_list[ix]
+                st.session_state.completed_tasks.append(task)
+                logger.info("updated submitted and completed tasks list.")
+            except StopIteration:
+                raise ValueError("Cannot find task in list of tasks.")
+            return task_list
+
+        submitted_tasks = st.session_state.get("submitted_tasks")
+        human_required_tasks = st.session_state.get("human_required_tasks")
+
+        if task_res.task_id in [t.task_id for t in submitted_tasks]:
+            updated_task_list = remove_task_from_list(submitted_tasks)
+            st.session_state.submitted_tasks = updated_task_list
+        elif task_res.task_id in [t.task_id for t in human_required_tasks]:
+            updated_task_list = remove_task_from_list(human_required_tasks)
+            st.session_state.human_required_tasks = updated_task_list
+        else:
+            raise ValueError(
+                "Completed task not in submitted or human_required lists."
             )
-            task.status = TaskStatus.COMPLETED
-            task.history.append(
-                ChatMessage(role="assistant", content=task_res.result)
-            )
-            del task_list[ix]
-            st.session_state.submitted_tasks = task_list
-            st.session_state.completed_tasks.append(task)
-            logger.info("updated submitted and completed tasks list.")
-        except StopIteration:
-            raise ValueError("Cannot find task in list of tasks.")
 
     def update_associated_task_to_human_required_status(
         self,

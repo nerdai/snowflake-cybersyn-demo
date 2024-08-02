@@ -140,6 +140,8 @@ if "messages" not in st.session_state:
     st.session_state.messages = []
 if "current_task" not in st.session_state:
     st.session_state.current_task = None
+if "human_input" not in st.session_state:
+    st.session_state.human_input = ""
 
 
 left, right = st.columns([1, 2], vertical_alignment="top")
@@ -154,39 +156,46 @@ with left:
 
 
 def chat_window() -> None:
-    with st.sidebar:
+    pass
+    # with st.sidebar:
 
-        @st.experimental_fragment(run_every="5s")
-        def show_chat_window() -> None:
-            messages_container = st.container(height=500)
-            with messages_container:
-                if st.session_state.current_task:
-                    messages = [
-                        m.dict() for m in st.session_state.current_task.history
-                    ]
-                    for message in messages:
-                        with st.chat_message(message["role"]):
-                            st.markdown(message["content"])
-                else:
-                    st.empty()
+    #     @st.experimental_fragment(run_every="5s")
+    #     def show_chat_window() -> None:
+    #         messages_container = st.container(height=500)
+    #         with messages_container:
+    #             if st.session_state.current_task:
+    #                 messages = [m.dict() for m in st.session_state.current_task.history]
+    #                 for message in messages:
+    #                     with st.chat_message(message["role"]):
+    #                         st.markdown(message["content"])
+    #             else:
+    #                 st.empty()
 
-        show_chat_window()
+    #     show_chat_window()
 
-        if _ := st.chat_input("What is up?"):
-            pass
-        #     st.session_state.messages.append({"role": "user", "content": prompt})
-        #     with st.chat_message("user"):
-        #         st.markdown(prompt)
+    #     if human_input := st.chat_input("Provide human input."):
+    #         if st.session_state.current_task:
+    #             st.session_state.current_task.history.append(
+    #                 ChatMessage(role="user", content=human_input)
+    #             )
+    # human_input_result_queue.put(human_input)
+    # time.sleep(1)
+    # logger.info("pushed human input to human input result queue.")
 
-        #     with st.chat_message("assistant"):
-        #         stream = llm.stream_chat(
-        #             messages=[
-        #                 ChatMessage(role=m["role"], content=m["content"])
-        #                 for m in st.session_state.messages
-        #             ]
-        #         )
-        #         response = st.write_stream(controller.llama_index_stream_wrapper(stream))
-        #     st.session_state.messages.append({"role": "assistant", "content": response})
+    #     logger.info(f"HUMAN INPUT: {human_input}")
+    #     st.session_state.messages.append({"role": "user", "content": prompt})
+    #     with st.chat_message("user"):
+    #         st.markdown(prompt)
+
+    #     with st.chat_message("assistant"):
+    #         stream = llm.stream_chat(
+    #             messages=[
+    #                 ChatMessage(role=m["role"], content=m["content"])
+    #                 for m in st.session_state.messages
+    #             ]
+    #         )
+    #         response = st.write_stream(controller.llama_index_stream_wrapper(stream))
+    #     st.session_state.messages.append({"role": "assistant", "content": response})
 
 
 @st.experimental_fragment(run_every="30s")
@@ -210,10 +219,16 @@ def task_df() -> None:
         + ["human_required"] * len(st.session_state.human_required_tasks)
         + ["completed"] * len(st.session_state.completed_tasks)
     )
-    data = {"task_id": task_ids, "input": tasks, "status": status}
+
+    data = {
+        "task_id": task_ids,
+        "input": tasks,
+        "status": status,
+    }
+
     logger.info(f"data: {data}")
     df = pd.DataFrame(data)
-    st.dataframe(
+    event = st.dataframe(
         df,
         hide_index=True,
         selection_mode="single-row",
@@ -221,6 +236,22 @@ def task_df() -> None:
         on_select=controller.get_task_selection_handler(df, chat_window),
         key="task_df",
     )
+
+    popover_enabled = (
+        len(event.selection["rows"]) > 0
+        and st.session_state.current_task.status == "human_required"
+    )
+    with st.popover("Human Input", disabled=not popover_enabled):
+        if popover_enabled:
+            human_prompt = st.session_state.current_task.history[-1].content
+            st.markdown(human_prompt)
+            st.text_input(
+                "Provide human input",
+                key="human_input",
+                on_change=controller.get_human_input_handler(
+                    human_input_result_queue
+                ),
+            )
 
 
 task_df()
