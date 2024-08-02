@@ -56,6 +56,9 @@ class Controller:
         for chunk in llama_index_stream:
             yield chunk.delta
 
+    def get_task_result(self, task_id: str) -> Optional[TaskResult]:
+        return self._client.get_task_result(task_id=task_id)
+
     def handle_task_submission(self) -> None:
         """Handle the user submitted message. Clear task submission box, and
         add the new task to the submitted list.

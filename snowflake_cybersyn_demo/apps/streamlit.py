@@ -1,4 +1,5 @@
 import asyncio
+import json
 import logging
 import queue
 import threading
@@ -173,32 +174,8 @@ def chat_window() -> None:
 
     #     show_chat_window()
 
-    #     if human_input := st.chat_input("Provide human input."):
-    #         if st.session_state.current_task:
-    #             st.session_state.current_task.history.append(
-    #                 ChatMessage(role="user", content=human_input)
-    #             )
-    # human_input_result_queue.put(human_input)
-    # time.sleep(1)
-    # logger.info("pushed human input to human input result queue.")
 
-    #     logger.info(f"HUMAN INPUT: {human_input}")
-    #     st.session_state.messages.append({"role": "user", "content": prompt})
-    #     with st.chat_message("user"):
-    #         st.markdown(prompt)
-
-    #     with st.chat_message("assistant"):
-    #         stream = llm.stream_chat(
-    #             messages=[
-    #                 ChatMessage(role=m["role"], content=m["content"])
-    #                 for m in st.session_state.messages
-    #             ]
-    #         )
-    #         response = st.write_stream(controller.llama_index_stream_wrapper(stream))
-    #     st.session_state.messages.append({"role": "assistant", "content": response})
-
-
-@st.experimental_fragment(run_every="30s")
+@st.experimental_fragment(run_every="10s")
 def task_df() -> None:
     st.text("Task Status")
     st.button("Refresh")
@@ -233,7 +210,7 @@ def task_df() -> None:
         hide_index=True,
         selection_mode="single-row",
         use_container_width=True,
-        on_select=controller.get_task_selection_handler(df, chat_window),
+        on_select="rerun",
         key="task_df",
     )
 
@@ -252,6 +229,29 @@ def task_df() -> None:
                     human_input_result_queue
                 ),
             )
+
+    sidebar_enabled = (
+        len(event.selection["rows"]) > 0
+        and st.session_state.current_task.status == "completed"
+    )
+
+    if sidebar_enabled:
+        if task_res := controller.get_task_result(
+            st.session_state.current_task.task_id
+        ):
+            try:
+                timeseries_data = json.loads(task_res.result)
+            except json.JSONDecodeError:
+                logger.info("Could not decode task_res")
+                pass
+            title = timeseries_data[0]["good"]
+            timeseries_data = {
+                "dates": [el["date"] for el in timeseries_data],
+                "price": [el["price"] for el in timeseries_data],
+            }
+            st.header(title)
+            logger.info(timeseries_data)
+            st.line_chart(data=timeseries_data, x="dates", y="price")
 
 
 task_df()
