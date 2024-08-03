@@ -3,16 +3,18 @@ import asyncio
 import uvicorn
 from llama_agents import ControlPlaneServer, PipelineOrchestrator
 from llama_agents.message_queues.rabbitmq import RabbitMQMessageQueue
-from llama_index.core.query_pipeline import QueryPipeline
+from llama_index.core.query_pipeline import QueryPipeline, RouterComponent
+from llama_index.core.selectors import PydanticSingleSelector
+from llama_index.llms.openai import OpenAI
 
 from snowflake_cybersyn_demo.additional_services.human_in_the_loop import (
     human_component,
 )
-from snowflake_cybersyn_demo.agent_services.financial_and_economic_essentials.goods_getter_agent import (
-    agent_component as goods_getter_component,
-)
-from snowflake_cybersyn_demo.agent_services.financial_and_economic_essentials.time_series_getter_agent import (
-    agent_component as time_series_getter_component,
+from snowflake_cybersyn_demo.agent_services import (
+    funny_agent_component,
+    funny_agent_server,
+    goods_getter_agent_component,
+    time_series_getter_agent_component,
 )
 from snowflake_cybersyn_demo.utils import load_from_env
 
@@ -30,13 +32,31 @@ message_queue = RabbitMQMessageQueue(
     url=f"amqp://{message_queue_username}:{message_queue_password}@{message_queue_host}:{message_queue_port}/"
 )
 
+
+timeseries_task_pipeline = QueryPipeline(
+    chain=[
+        goods_getter_agent_component,
+        human_component,
+        time_series_getter_agent_component,
+    ],
+)
+timeseries_task_pipeline_desc = (
+    "Only used for getting timeseries data from the database."
+)
+
 pipeline = QueryPipeline(
     chain=[
-        goods_getter_component,
-        human_component,
-        time_series_getter_component,
+        RouterComponent(
+            selector=PydanticSingleSelector.from_defaults(llm=OpenAI()),
+            choices=[
+                funny_agent_server.description,
+                timeseries_task_pipeline_desc,
+            ],
+            components=[funny_agent_component, timeseries_task_pipeline],
+        )
     ]
 )
+
 pipeline_orchestrator = PipelineOrchestrator(pipeline)
 
 # setup control plane

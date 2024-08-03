@@ -1,12 +1,10 @@
 import asyncio
-from pathlib import Path
 
 import uvicorn
 from llama_agents import AgentService, ServiceComponent
 from llama_agents.message_queues.rabbitmq import RabbitMQMessageQueue
 from llama_index.agent.openai import OpenAIAgent
-from llama_index.core import SimpleDirectoryReader, VectorStoreIndex
-from llama_index.core.tools import FunctionTool, QueryEngineTool, ToolMetadata
+from llama_index.core.tools import FunctionTool
 from llama_index.llms.openai import OpenAI
 
 from snowflake_cybersyn_demo.utils import load_from_env
@@ -36,34 +34,16 @@ def get_the_secret_fact() -> str:
 
 secret_fact_tool = FunctionTool.from_defaults(fn=get_the_secret_fact)
 
-# rag tool
-data_path = Path(Path(__file__).parents[2].absolute(), "data").as_posix()
-print(data_path)
-loader = SimpleDirectoryReader(input_dir=data_path)
-documents = loader.load_data()
-index = VectorStoreIndex.from_documents(documents)
-query_engine = index.as_query_engine(llm=OpenAI(model="gpt-4o"))
-query_engine_tool = QueryEngineTool(
-    query_engine=query_engine,
-    metadata=ToolMetadata(
-        name="paul_graham_tool",
-        description=(
-            "Provides information about Paul Graham and his written essays."
-        ),
-    ),
-)
-
-
 agent = OpenAIAgent.from_tools(
-    [secret_fact_tool, query_engine_tool],
-    system_prompt="Knows about Paul Graham, the secret fact, and is able to tell a funny joke.",
+    [secret_fact_tool],
+    system_prompt="Knows the secret fact, and can tell funny jokes.",
     llm=OpenAI(model="gpt-4o"),
     verbose=True,
 )
 agent_server = AgentService(
     agent=agent,
     message_queue=message_queue,
-    description="Useful for everything but math, and especially telling funny jokes and anything about Paul Graham.",
+    description="Cannot get timeseries data of specified good, but can handle all other queries.",
     service_name="funny_agent",
     host=funny_agent_host,
     port=int(funny_agent_port) if funny_agent_port else None,

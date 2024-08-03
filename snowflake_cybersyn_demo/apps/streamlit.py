@@ -238,25 +238,36 @@ def task_df() -> None:
         and st.session_state.current_task.status == "completed"
     )
 
+    task_res_container = st.container(height=500)
     if show_task_res:
         if task_res := controller.get_task_result(
             st.session_state.current_task.task_id
         ):
-            try:
-                timeseries_data = perform_price_aggregation(task_res.result)
-            except json.JSONDecodeError:
-                logger.info("Could not decode task_res")
-                pass
-            title = timeseries_data[0]["good"]
-            timeseries_data = {
-                "dates": [el["date"] for el in timeseries_data],
-                "price": [el["price"] for el in timeseries_data],
-            }
-            with st.container(height=500):
-                st.header(title)
-                st.bar_chart(
-                    data=timeseries_data, x="dates", y="price", height=400
-                )
+            task_type = controller.infer_task_type(task_res)
+
+            timeseries_data = None
+            if task_type == "timeseries":
+                try:
+                    timeseries_data = perform_price_aggregation(
+                        task_res.result
+                    )
+                except json.JSONDecodeError:
+                    logger.info("Could not decode task_res")
+                    pass
+
+            with task_res_container:
+                if timeseries_data:
+                    title = timeseries_data[0]["good"]
+                    timeseries_data = {
+                        "dates": [el["date"] for el in timeseries_data],
+                        "price": [el["price"] for el in timeseries_data],
+                    }
+                    st.header(title)
+                    st.bar_chart(
+                        data=timeseries_data, x="dates", y="price", height=400
+                    )
+                else:
+                    st.write(task_res.result)
 
 
 task_df()
