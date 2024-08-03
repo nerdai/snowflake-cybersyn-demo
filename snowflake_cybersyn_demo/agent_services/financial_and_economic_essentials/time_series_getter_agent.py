@@ -94,8 +94,7 @@ def get_time_series_of_good(good: str) -> str:
 
     # process
     results = [
-        {"good": str(el[1]), "date": str(el[0]), "price": str(el[2])}
-        for el in results
+        {"good": str(el[1]), "date": str(el[0]), "price": str(el[2])} for el in results
     ]
     results_str = json.dumps(results, indent=4)
 
@@ -121,7 +120,7 @@ def perform_price_aggregation(json_str: str) -> str:
         for date, prices in new_time_series_data.items()
     ]
 
-    return json.dumps(reduced_time_series_data, indent=4)
+    return reduced_time_series_data
 
 
 goods_getter_tool = FunctionTool.from_defaults(
