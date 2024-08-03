@@ -94,7 +94,8 @@ def get_time_series_of_good(good: str) -> str:
 
     # process
     results = [
-        {"good": str(el[1]), "date": str(el[0]), "price": str(el[2])} for el in results
+        {"good": str(el[1]), "date": str(el[0]), "price": str(el[2])}
+        for el in results
     ]
     results_str = json.dumps(results, indent=4)
 

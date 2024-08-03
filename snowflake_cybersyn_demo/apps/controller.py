@@ -1,6 +1,5 @@
 import logging
 import queue
-import time
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any, Callable, Generator, List, Optional
@@ -166,9 +165,7 @@ class Controller:
         except StopIteration:
             raise ValueError("Cannot find task in list of tasks.")
 
-    def get_task_selection_handler(
-        self, task_df: pd.DataFrame, display_chat_window: Callable
-    ) -> Callable:
+    def get_task_selection_handler(self, task_df: pd.DataFrame) -> Callable:
         def task_selection_handler() -> None:
             dataframe_selection_state = st.session_state.task_df["selection"][
                 "rows"
@@ -176,9 +173,6 @@ class Controller:
 
             if not dataframe_selection_state:
                 st.session_state.current_task = None
-                time.sleep(0.1)
-                logger.info("Clear chat after de-selection.")
-                logger.info(f"messages: {st.session_state.messages}")
                 return
 
             # display chat history in console
@@ -196,9 +190,6 @@ class Controller:
             try:
                 task = next(t for t in task_list if t.task_id == task_id)
                 st.session_state.current_task = task
-                display_chat_window()
-                logger.info("Displaying selected tasks history.")
-                logger.info(f"messages: {st.session_state.messages}")
             except StopIteration:
                 pass  # handle this better
 
