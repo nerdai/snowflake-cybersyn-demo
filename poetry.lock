@@ -1399,7 +1399,7 @@ redis = ["redis (>=5.0.7,<6.0.0)"]
 type = "git"
 url = "git@github.com:run-llama/llama-agents.git"
 reference = "nerdai-fix-pipeline-orchestrator"
-resolved_reference = "5d87da4c9d386391d09be6ba81d3a321b35e124f"
+resolved_reference = "d66cd537569c8d40c16b69e75a804e8dcb987fc6"
 
 [[package]]
 name = "llama-index-agent-openai"

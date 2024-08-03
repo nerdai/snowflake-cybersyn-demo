@@ -1,8 +1,7 @@
 import asyncio
 
 import uvicorn
-from llama_agents import ControlPlaneServer, PipelineOrchestrator
-from llama_agents.orchestrators.router import RouterOrchestrator
+from llama_agents import ControlPlaneServer, PipelineOrchestrator, OrchestratorRouter
 from llama_agents.message_queues.rabbitmq import RabbitMQMessageQueue
 from llama_index.core.query_pipeline import QueryPipeline, RouterComponent
 from llama_index.core.selectors import PydanticSingleSelector
@@ -49,7 +48,7 @@ timeseries_task_pipeline_desc = (
 general_pipeline = QueryPipeline(chain=[funny_agent_component])
 general_pipeline_orchestrator = PipelineOrchestrator(general_pipeline)
 
-pipeline_orchestrator = RouterOrchestrator(
+pipeline_orchestrator = OrchestratorRouter(
     selector=PydanticSingleSelector.from_defaults(llm=OpenAI()),
     orchestrators=[timeseries_pipeline_orchestrator, general_pipeline_orchestrator],
     choices=[timeseries_task_pipeline_desc, funny_agent_server.description],
