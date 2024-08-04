@@ -1,4 +1,6 @@
 import asyncio
+import json
+from typing import Dict, List
 
 import uvicorn
 from llama_agents import AgentService, ServiceComponent
@@ -9,6 +11,11 @@ from llama_index.llms.openai import OpenAI
 from snowflake.sqlalchemy import URL
 from sqlalchemy import create_engine, text
 
+import logging
+
+logger = logging.getLogger(__name__)
+
+
 from snowflake_cybersyn_demo.utils import load_from_env
 
 message_queue_host = load_from_env("RABBITMQ_HOST")
@@ -17,8 +24,8 @@ message_queue_username = load_from_env("RABBITMQ_DEFAULT_USER")
 message_queue_password = load_from_env("RABBITMQ_DEFAULT_PASS")
 control_plane_host = load_from_env("CONTROL_PLANE_HOST")
 control_plane_port = load_from_env("CONTROL_PLANE_PORT")
-agent_host = load_from_env("STATS_GETTER_AGENT_HOST")
-agent_port = load_from_env("STATS_GETTER_AGENT_PORT")
+agent_host = load_from_env("STATS_FULFILLER_AGENT_HOST")
+agent_port = load_from_env("STATS_FULFILLER_AGENT_PORT")
 snowflake_user = load_from_env("SNOWFLAKE_USERNAME")
 snowflake_password = load_from_env("SNOWFLAKE_PASSWORD")
 snowflake_account = load_from_env("SNOWFLAKE_ACCOUNT")
@@ -31,39 +38,48 @@ message_queue = RabbitMQMessageQueue(
     url=f"amqp://{message_queue_username}:{message_queue_password}@{message_queue_host}:{message_queue_port}/"
 )
 
+AGENT_SYSTEM_PROMPT = """
+Query the database to return timeseries data of user-specified geographic/demographic statistic.
+
+Use the tool to return the time series data as a JSON with the folowing format:
+
+{{
+    [
+        {{
+            "variable": ...,
+            "date": ...,
+            "value": ...
+        }},
+        {{
+            "variable": ...,
+            "date": ...,
+            "value": ...
+        }},
+        ...
+    ]
+}}
+
+Don't return the output as markdown code. Don't modify the tool output. Return
+strictly the tool ouput.
+"""
+
+
 SQL_QUERY_TEMPLATE = """
-SELECT DISTINCT
-       ts.variable_name
+SELECT ts.date as date,
+       ts.value as value
 FROM cybersyn.datacommons_timeseries AS ts
 JOIN cybersyn.geography_index AS geo ON (ts.geo_id = geo.geo_id)
 WHERE geo.geo_name = '{city}'
   AND geo.level IN ('City')
-  AND date >= '2015-01-01';
-"""
-
-AGENT_SYSTEM_PROMPT = """
-For a given query about a geographic and population statistic, your job is to first
-find the statistical variables that exists in the database.
-
-Return the list of the three most relevant statistical variables that exist in the
-database and that potentially match the object of the users query.
-
-Output your list in the following format:
-
-1. <variable-1> for <specified-city>,
-2. <variable-2> for <specified-city>,
-3. <variable-3> for <specified-city>
-
-Be sure to use the exact variable names that were retrieved from the database tool!
+  AND ts.variable_name ILIKE '{stats_variable}%'
+  AND date >= '2015-01-01'
+ORDER BY date;
 """
 
 
-def get_list_of_statistical_variables(city: str, query: str) -> str:
-    """Returns a list of statistical variables that closely resemble the query.
-
-    The list of statistical vars is represented as a string separated by '\n'.
-    """
-    query = SQL_QUERY_TEMPLATE.format(city=city)
+def get_time_series_of_statistic_variable(city: str, stats_variable: str) -> str:
+    """Create a time series of a specified stats variable."""
+    query = SQL_QUERY_TEMPLATE.format(city=city, stats_variable=stats_variable)
     url = URL(
         account=snowflake_account,
         user=snowflake_user,
@@ -78,32 +94,58 @@ def get_list_of_statistical_variables(city: str, query: str) -> str:
     try:
         connection = engine.connect()
         results = connection.execute(text(query))
+    except Exception as e:
+        logger.debug("Failed to execute query")
+        raise
     finally:
         connection.close()
 
     # process
-    results = [f"{ix+1}. {str(el[0])}" for ix, el in enumerate(results)]
-    results_str = "List of statistical variables that exist in the database are provided below. Please select one.:\n\n"
-    results_str += "\n".join(results)
+    results = [
+        {"good": str(el[1]), "date": str(el[0]), "price": str(el[2])} for el in results
+    ]
+    results_str = json.dumps(results, indent=4)
 
     return results_str
 
 
-statistics_getter_tool = FunctionTool.from_defaults(
-    fn=get_list_of_statistical_variables
+def perform_date_value_aggregation(json_str: str) -> str:
+    """Perform value aggregation on the time series data."""
+    timeseries_data = json.loads(json_str)
+    variable = timeseries_data[0]["variable"]
+
+    new_time_series_data: Dict[str, List[float]] = {}
+    for el in timeseries_data:
+        date = el["date"]
+        value = el["value"]
+        if date in new_time_series_data:
+            new_time_series_data[date].append(float(value))
+        else:
+            new_time_series_data[date] = [float(value)]
+
+    reduced_time_series_data = [
+        {"variable": variable, "date": date, "value": sum(values) / len(values)}
+        for date, values in new_time_series_data.items()
+    ]
+
+    return reduced_time_series_data
+
+
+stats_fulfiller_tool = FunctionTool.from_defaults(
+    fn=get_time_series_of_statistic_variable, return_direct=True
 )
 agent = OpenAIAgent.from_tools(
-    [statistics_getter_tool],
+    [stats_fulfiller_tool],
     system_prompt=AGENT_SYSTEM_PROMPT,
-    llm=OpenAI(model="gpt-4o-mini"),
+    llm=OpenAI(model="gpt-3.5-turbo"),
     verbose=True,
 )
 
 agent_server = AgentService(
     agent=agent,
     message_queue=message_queue,
-    description="Retrieves the statistical variables that exist in the database that match the user's query.",
-    service_name="stats_getter_agent",
+    description="Gets the stats data for a given statistical variable",
+    service_name="stats_fulfiller_agent",
     host=agent_host,
     port=int(agent_port) if agent_port else None,
 )

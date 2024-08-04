@@ -152,6 +152,34 @@ services:
       retries: 5
       start_period: 20s
       timeout: 10s
+  stats_fulfiller_agent:
+    image: snowflake_cybersyn_demo:latest
+    command: sh -c "python -m snowflake_cybersyn_demo.agent_services.government_essentials.stats_fulfiller_agent"
+    env_file:
+      - .env.docker
+    ports:
+      - "8006:8006"
+    volumes:
+      - ./snowflake_cybersyn_demo:/app/snowflake_cybersyn_demo # load local code change to container without the need of rebuild
+      - ./data:/app/data
+      - ./logging.ini:/app/logging.ini
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+      control_plane:
+        condition: service_healthy
+    platform: linux/amd64
+    build:
+      context: .
+      dockerfile: ./Dockerfile
+      secrets:
+        - id_ed25519
+    healthcheck:
+      test: wget --no-verbose --tries=1 http://0.0.0.0:8006/is_worker_running || exit 1
+      interval: 30s
+      retries: 5
+      start_period: 20s
+      timeout: 10s
 volumes:
   rabbitmq:
 secrets:

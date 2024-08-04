@@ -22,6 +22,12 @@ from snowflake_cybersyn_demo.agent_services.government_essentials.stats_getter_a
 from snowflake_cybersyn_demo.agent_services.government_essentials.stats_getter_agent import (
     agent_server as stats_getter_agent_server,
 )
+from snowflake_cybersyn_demo.agent_services.government_essentials.stats_fulfiller_agent import (
+    agent_component as stats_fulfiller_agent_component,
+)
+from snowflake_cybersyn_demo.agent_services.government_essentials.stats_fulfiller_agent import (
+    agent_server as stats_fulfiller_agent_server,
+)
 
 __all__ = [
     "goods_getter_agent_component",
@@ -30,6 +36,8 @@ __all__ = [
     "time_series_getter_agent_server",
     "stats_getter_agent_component",
     "stats_getter_agent_server",
+    "stats_fulfiller_agent_component",
+    "stats_fulfiller_agent_server",
     "funny_agent_server",
     "funny_agent_component",
 ]

@@ -32,15 +32,13 @@ st.set_page_config(layout="wide")
 
 
 @st.cache_resource
-def startup() -> (
-    Tuple[
-        Controller,
-        queue.Queue[TaskResult],
-        FinalTaskConsumer,
-        queue.Queue[HumanRequest],
-        queue.Queue[str],
-    ]
-):
+def startup() -> Tuple[
+    Controller,
+    queue.Queue[TaskResult],
+    FinalTaskConsumer,
+    queue.Queue[HumanRequest],
+    queue.Queue[str],
+]:
     from snowflake_cybersyn_demo.additional_services.human_in_the_loop import (
         human_input_request_queue,
         human_input_result_queue,
@@ -63,9 +61,7 @@ def startup() -> (
             )
         )
 
-        consuming_callable = await message_queue.register_consumer(
-            hs.as_consumer()
-        )
+        consuming_callable = await message_queue.register_consumer(hs.as_consumer())
 
         ht_task = asyncio.create_task(consuming_callable())  # noqa: F841
 
@@ -178,7 +174,7 @@ def chat_window() -> None:
     #     show_chat_window()
 
 
-@st.experimental_fragment(run_every="10s")
+@st.experimental_fragment(run_every="5s")
 def task_df() -> None:
     st.text("Task Status")
     st.button("Refresh")
@@ -228,9 +224,7 @@ def task_df() -> None:
             st.text_input(
                 "Provide human input",
                 key="human_input",
-                on_change=controller.get_human_input_handler(
-                    human_input_result_queue
-                ),
+                on_change=controller.get_human_input_handler(human_input_result_queue),
             )
 
     show_task_res = (
@@ -248,9 +242,7 @@ def task_df() -> None:
             timeseries_data = None
             if task_type == "timeseries":
                 try:
-                    timeseries_data = perform_price_aggregation(
-                        task_res.result
-                    )
+                    timeseries_data = perform_price_aggregation(task_res.result)
                 except json.JSONDecodeError:
                     logger.info("Could not decode task_res")
                     pass
@@ -263,9 +255,7 @@ def task_df() -> None:
                         "price": [el["price"] for el in timeseries_data],
                     }
                     st.header(title)
-                    st.bar_chart(
-                        data=timeseries_data, x="dates", y="price", height=400
-                    )
+                    st.bar_chart(data=timeseries_data, x="dates", y="price", height=400)
                 else:
                     st.write(task_res.result)
 
@@ -283,9 +273,7 @@ def process_completed_tasks(completed_queue: queue.Queue) -> None:
         logger.info("task result queue is empty.")
 
     if task_res:
-        controller.update_associated_task_to_completed_status(
-            task_res=task_res
-        )
+        controller.update_associated_task_to_completed_status(task_res=task_res)
 
 
 process_completed_tasks(completed_queue=completed_tasks_queue)
@@ -303,9 +291,7 @@ def process_human_input_requests(
         logger.info("human request queue is empty.")
 
     if human_req:
-        controller.update_associated_task_to_human_required_status(
-            human_req=human_req
-        )
+        controller.update_associated_task_to_human_required_status(human_req=human_req)
 
 
 process_human_input_requests(human_requests_queue=human_input_request_queue)
