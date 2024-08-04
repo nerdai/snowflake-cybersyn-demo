@@ -18,6 +18,7 @@ from snowflake_cybersyn_demo.agent_services import (
     funny_agent_component,
     funny_agent_server,
     goods_getter_agent_component,
+    stats_getter_agent_component,
     time_series_getter_agent_component,
 )
 from snowflake_cybersyn_demo.utils import load_from_env
@@ -36,7 +37,7 @@ message_queue = RabbitMQMessageQueue(
     url=f"amqp://{message_queue_username}:{message_queue_password}@{message_queue_host}:{message_queue_port}/"
 )
 
-
+# historical prices of a good pipeline
 timeseries_task_pipeline = QueryPipeline(
     chain=[
         goods_getter_agent_component,
@@ -51,16 +52,34 @@ timeseries_task_pipeline_desc = """Only used for getting historical price
 (timeseries) data for a specified good from the database.
 """
 
+# government statistics pipeline
+city_stats_pipeline = QueryPipeline(
+    chain=[
+        stats_getter_agent_component,
+        human_component,
+    ],
+)
+city_stats_pipeline_orchestrator = PipelineOrchestrator(city_stats_pipeline)
+city_stats_pipeline_desc = """Only used for getting geographic and demographic
+statistics for a specified city.
+"""
+
+# general pipeline
 general_pipeline = QueryPipeline(chain=[funny_agent_component])
 general_pipeline_orchestrator = PipelineOrchestrator(general_pipeline)
 
 pipeline_orchestrator = OrchestratorRouter(
-    selector=PydanticSingleSelector.from_defaults(llm=OpenAI()),
+    selector=PydanticSingleSelector.from_defaults(llm=OpenAI("gpt-4o-mini")),
     orchestrators=[
         timeseries_pipeline_orchestrator,
+        city_stats_pipeline_orchestrator,
         general_pipeline_orchestrator,
     ],
-    choices=[timeseries_task_pipeline_desc, funny_agent_server.description],
+    choices=[
+        timeseries_task_pipeline_desc,
+        city_stats_pipeline_desc,
+        funny_agent_server.description,
+    ],
 )
 
 # setup control plane
