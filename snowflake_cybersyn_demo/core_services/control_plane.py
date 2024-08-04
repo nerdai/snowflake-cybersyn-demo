@@ -1,9 +1,13 @@
 import asyncio
 
 import uvicorn
-from llama_agents import ControlPlaneServer, PipelineOrchestrator, OrchestratorRouter
+from llama_agents import (
+    ControlPlaneServer,
+    OrchestratorRouter,
+    PipelineOrchestrator,
+)
 from llama_agents.message_queues.rabbitmq import RabbitMQMessageQueue
-from llama_index.core.query_pipeline import QueryPipeline, RouterComponent
+from llama_index.core.query_pipeline import QueryPipeline
 from llama_index.core.selectors import PydanticSingleSelector
 from llama_index.llms.openai import OpenAI
 
@@ -40,17 +44,22 @@ timeseries_task_pipeline = QueryPipeline(
         time_series_getter_agent_component,
     ],
 )
-timeseries_pipeline_orchestrator = PipelineOrchestrator(timeseries_task_pipeline)
-timeseries_task_pipeline_desc = (
-    "Only used for getting timeseries data from the database."
+timeseries_pipeline_orchestrator = PipelineOrchestrator(
+    timeseries_task_pipeline
 )
+timeseries_task_pipeline_desc = """Only used for getting historical price
+(timeseries) data for a specified good from the database.
+"""
 
 general_pipeline = QueryPipeline(chain=[funny_agent_component])
 general_pipeline_orchestrator = PipelineOrchestrator(general_pipeline)
 
 pipeline_orchestrator = OrchestratorRouter(
     selector=PydanticSingleSelector.from_defaults(llm=OpenAI()),
-    orchestrators=[timeseries_pipeline_orchestrator, general_pipeline_orchestrator],
+    orchestrators=[
+        timeseries_pipeline_orchestrator,
+        general_pipeline_orchestrator,
+    ],
     choices=[timeseries_task_pipeline_desc, funny_agent_server.description],
 )
 
