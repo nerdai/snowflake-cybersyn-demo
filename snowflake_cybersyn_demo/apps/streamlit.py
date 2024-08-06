@@ -18,6 +18,9 @@ from snowflake_cybersyn_demo.additional_services.human_in_the_loop import (
 from snowflake_cybersyn_demo.agent_services.financial_and_economic_essentials.time_series_getter_agent import (
     perform_price_aggregation,
 )
+from snowflake_cybersyn_demo.agent_services.government_essentials.stats_fulfiller_agent import (
+    perform_date_value_aggregation,
+)
 from snowflake_cybersyn_demo.apps.controller import Controller
 from snowflake_cybersyn_demo.apps.final_task_consumer import FinalTaskConsumer
 
@@ -32,13 +35,15 @@ st.set_page_config(layout="wide")
 
 
 @st.cache_resource
-def startup() -> Tuple[
-    Controller,
-    queue.Queue[TaskResult],
-    FinalTaskConsumer,
-    queue.Queue[HumanRequest],
-    queue.Queue[str],
-]:
+def startup() -> (
+    Tuple[
+        Controller,
+        queue.Queue[TaskResult],
+        FinalTaskConsumer,
+        queue.Queue[HumanRequest],
+        queue.Queue[str],
+    ]
+):
     from snowflake_cybersyn_demo.additional_services.human_in_the_loop import (
         human_input_request_queue,
         human_input_result_queue,
@@ -61,7 +66,9 @@ def startup() -> Tuple[
             )
         )
 
-        consuming_callable = await message_queue.register_consumer(hs.as_consumer())
+        consuming_callable = await message_queue.register_consumer(
+            hs.as_consumer()
+        )
 
         ht_task = asyncio.create_task(consuming_callable())  # noqa: F841
 
@@ -155,25 +162,6 @@ with left:
     )
 
 
-def chat_window() -> None:
-    pass
-    # with st.sidebar:
-
-    #     @st.experimental_fragment(run_every="5s")
-    #     def show_chat_window() -> None:
-    #         messages_container = st.container(height=500)
-    #         with messages_container:
-    #             if st.session_state.current_task:
-    #                 messages = [m.dict() for m in st.session_state.current_task.history]
-    #                 for message in messages:
-    #                     with st.chat_message(message["role"]):
-    #                         st.markdown(message["content"])
-    #             else:
-    #                 st.empty()
-
-    #     show_chat_window()
-
-
 @st.experimental_fragment(run_every="5s")
 def task_df() -> None:
     st.text("Task Status")
@@ -224,7 +212,9 @@ def task_df() -> None:
             st.text_input(
                 "Provide human input",
                 key="human_input",
-                on_change=controller.get_human_input_handler(human_input_result_queue),
+                on_change=controller.get_human_input_handler(
+                    human_input_result_queue
+                ),
             )
 
     show_task_res = (
@@ -240,22 +230,47 @@ def task_df() -> None:
             task_type = controller.infer_task_type(task_res)
 
             timeseries_data = None
-            if task_type == "timeseries":
+            value_key: str = ""
+            object_key: str = ""
+            color: str = ""
+            if task_type == "timeseries-good":
                 try:
-                    timeseries_data = perform_price_aggregation(task_res.result)
+                    timeseries_data = perform_price_aggregation(
+                        task_res.result
+                    )
+                    value_key = "price"
+                    object_key = "good"
+                    color = "#FF91AF"
+                except json.JSONDecodeError:
+                    logger.info("Could not decode task_res")
+                    pass
+            elif task_type == "timeseries-city-stat":
+                try:
+                    timeseries_data = perform_date_value_aggregation(
+                        task_res.result
+                    )
+                    value_key = "value"
+                    object_key = "variable"
+                    color = "#73CED0"
                 except json.JSONDecodeError:
                     logger.info("Could not decode task_res")
                     pass
 
             with task_res_container:
                 if timeseries_data:
-                    title = timeseries_data[0]["good"]
-                    timeseries_data = {
+                    title = timeseries_data[0][object_key]
+                    chart_data = {
                         "dates": [el["date"] for el in timeseries_data],
-                        "price": [el["price"] for el in timeseries_data],
+                        value_key: [el[value_key] for el in timeseries_data],
                     }
                     st.header(title)
-                    st.bar_chart(data=timeseries_data, x="dates", y="price", height=400)
+                    st.bar_chart(
+                        data=chart_data,
+                        x="dates",
+                        y=value_key,
+                        height=400,
+                        color=color,
+                    )
                 else:
                     st.write(task_res.result)
 
@@ -273,7 +288,9 @@ def process_completed_tasks(completed_queue: queue.Queue) -> None:
         logger.info("task result queue is empty.")
 
     if task_res:
-        controller.update_associated_task_to_completed_status(task_res=task_res)
+        controller.update_associated_task_to_completed_status(
+            task_res=task_res
+        )
 
 
 process_completed_tasks(completed_queue=completed_tasks_queue)
@@ -291,7 +308,9 @@ def process_human_input_requests(
         logger.info("human request queue is empty.")
 
     if human_req:
-        controller.update_associated_task_to_human_required_status(human_req=human_req)
+        controller.update_associated_task_to_human_required_status(
+            human_req=human_req
+        )
 
 
 process_human_input_requests(human_requests_queue=human_input_request_queue)

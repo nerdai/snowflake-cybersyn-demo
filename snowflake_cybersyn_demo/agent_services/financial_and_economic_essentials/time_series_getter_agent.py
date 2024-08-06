@@ -1,6 +1,6 @@
 import asyncio
 import json
-from typing import Dict, List
+from typing import Any, Dict, List
 
 import uvicorn
 from llama_agents import AgentService, ServiceComponent
@@ -102,7 +102,7 @@ def get_time_series_of_good(good: str) -> str:
     return results_str
 
 
-def perform_price_aggregation(json_str: str) -> str:
+def perform_price_aggregation(json_str: str) -> List[Dict[str, Any]]:
     """Perform price aggregation on the time series data."""
     timeseries_data = json.loads(json_str)
     good = timeseries_data[0]["good"]

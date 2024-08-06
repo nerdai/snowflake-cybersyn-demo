@@ -1,7 +1,7 @@
 import asyncio
 import json
 import logging
-from typing import Dict, List
+from typing import Any, Dict, List
 
 import uvicorn
 from llama_agents import AgentService, ServiceComponent
@@ -12,10 +12,10 @@ from llama_index.llms.openai import OpenAI
 from snowflake.sqlalchemy import URL
 from sqlalchemy import create_engine, text
 
+from snowflake_cybersyn_demo.utils import load_from_env
+
 logger = logging.getLogger(__name__)
 
-
-from snowflake_cybersyn_demo.utils import load_from_env
 
 message_queue_host = load_from_env("RABBITMQ_HOST")
 message_queue_port = load_from_env("RABBITMQ_NODE_PORT")
@@ -113,7 +113,7 @@ def get_time_series_of_statistic_variable(
     return results_str
 
 
-def perform_date_value_aggregation(json_str: str) -> str:
+def perform_date_value_aggregation(json_str: str) -> List[Dict[str, Any]]:
     """Perform value aggregation on the time series data."""
     timeseries_data = json.loads(json_str)
     variable = timeseries_data[0]["variable"]

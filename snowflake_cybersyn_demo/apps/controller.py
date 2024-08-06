@@ -3,7 +3,7 @@ import logging
 import queue
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Callable, Dict, Generator, List, Optional
+from typing import Any, Callable, Generator, List, Optional
 
 import pandas as pd
 import streamlit as st
@@ -197,14 +197,16 @@ class Controller:
         return task_selection_handler
 
     def infer_task_type(self, task_res: TaskResult) -> str:
-        def try_parse_as_json(text: str) -> Optional[Dict]:
+        def try_parse_as_json(text: str) -> Any:
             try:
                 return json.loads(text)
             except json.JSONDecodeError:
-                return {}
+                return None
 
         if task_res_json := try_parse_as_json(task_res.result):
             if "good" in task_res_json[0]:
-                return "timeseries"
+                return "timeseries-good"
+            if "variable" in task_res_json[0]:
+                return "timeseries-city-stat"
 
         return "text"
