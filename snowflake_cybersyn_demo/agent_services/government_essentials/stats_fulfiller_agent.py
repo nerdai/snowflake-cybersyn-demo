@@ -1,5 +1,6 @@
 import asyncio
 import json
+import logging
 from typing import Dict, List
 
 import uvicorn
@@ -10,8 +11,6 @@ from llama_index.core.tools import FunctionTool
 from llama_index.llms.openai import OpenAI
 from snowflake.sqlalchemy import URL
 from sqlalchemy import create_engine, text
-
-import logging
 
 logger = logging.getLogger(__name__)
 
@@ -65,8 +64,10 @@ strictly the tool ouput.
 
 
 SQL_QUERY_TEMPLATE = """
-SELECT ts.date as date,
-       ts.value as value
+SELECT
+    ts.date as date,
+    ts.variable_name,
+    ts.value as value
 FROM cybersyn.datacommons_timeseries AS ts
 JOIN cybersyn.geography_index AS geo ON (ts.geo_id = geo.geo_id)
 WHERE geo.geo_name = '{city}'
@@ -77,7 +78,9 @@ ORDER BY date;
 """
 
 
-def get_time_series_of_statistic_variable(city: str, stats_variable: str) -> str:
+def get_time_series_of_statistic_variable(
+    city: str, stats_variable: str
+) -> str:
     """Create a time series of a specified stats variable."""
     query = SQL_QUERY_TEMPLATE.format(city=city, stats_variable=stats_variable)
     url = URL(
@@ -94,7 +97,7 @@ def get_time_series_of_statistic_variable(city: str, stats_variable: str) -> str
     try:
         connection = engine.connect()
         results = connection.execute(text(query))
-    except Exception as e:
+    except Exception:
         logger.debug("Failed to execute query")
         raise
     finally:
@@ -102,7 +105,8 @@ def get_time_series_of_statistic_variable(city: str, stats_variable: str) -> str
 
     # process
     results = [
-        {"good": str(el[1]), "date": str(el[0]), "price": str(el[2])} for el in results
+        {"variable": str(el[1]), "date": str(el[0]), "value": str(el[2])}
+        for el in results
     ]
     results_str = json.dumps(results, indent=4)
 
@@ -124,7 +128,11 @@ def perform_date_value_aggregation(json_str: str) -> str:
             new_time_series_data[date] = [float(value)]
 
     reduced_time_series_data = [
-        {"variable": variable, "date": date, "value": sum(values) / len(values)}
+        {
+            "variable": variable,
+            "date": date,
+            "value": sum(values) / len(values),
+        }
         for date, values in new_time_series_data.items()
     ]
 
