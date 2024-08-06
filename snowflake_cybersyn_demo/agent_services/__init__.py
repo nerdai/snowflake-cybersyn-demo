@@ -16,17 +16,17 @@ from snowflake_cybersyn_demo.agent_services.funny_agent import (
 from snowflake_cybersyn_demo.agent_services.funny_agent import (
     agent_server as funny_agent_server,
 )
-from snowflake_cybersyn_demo.agent_services.government_essentials.stats_getter_agent import (
-    agent_component as stats_getter_agent_component,
-)
-from snowflake_cybersyn_demo.agent_services.government_essentials.stats_getter_agent import (
-    agent_server as stats_getter_agent_server,
-)
 from snowflake_cybersyn_demo.agent_services.government_essentials.stats_fulfiller_agent import (
     agent_component as stats_fulfiller_agent_component,
 )
 from snowflake_cybersyn_demo.agent_services.government_essentials.stats_fulfiller_agent import (
     agent_server as stats_fulfiller_agent_server,
+)
+from snowflake_cybersyn_demo.agent_services.government_essentials.stats_getter_agent import (
+    agent_component as stats_getter_agent_component,
+)
+from snowflake_cybersyn_demo.agent_services.government_essentials.stats_getter_agent import (
+    agent_server as stats_getter_agent_server,
 )
 
 __all__ = [

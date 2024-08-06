@@ -18,8 +18,8 @@ from snowflake_cybersyn_demo.agent_services import (
     funny_agent_component,
     funny_agent_server,
     goods_getter_agent_component,
-    stats_getter_agent_component,
     stats_fulfiller_agent_component,
+    stats_getter_agent_component,
     time_series_getter_agent_component,
 )
 from snowflake_cybersyn_demo.utils import load_from_env
@@ -46,7 +46,9 @@ timeseries_task_pipeline = QueryPipeline(
         time_series_getter_agent_component,
     ],
 )
-timeseries_pipeline_orchestrator = PipelineOrchestrator(timeseries_task_pipeline)
+timeseries_pipeline_orchestrator = PipelineOrchestrator(
+    timeseries_task_pipeline
+)
 timeseries_task_pipeline_desc = """Only used for getting historical price
 (timeseries) data for a specified good from the database.
 """
