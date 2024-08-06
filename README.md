@@ -1,5 +1,7 @@
 # LlamaAgents Demo With Snowflake/Cybersyn Data Agents
 
+<img width="960" alt="image" src="https://github.com/user-attachments/assets/2d82ac2b-d37f-4b86-9867-69947402c924">
+
 For this demo app, we have a multi-agent system comprised with the following
 components:
 
