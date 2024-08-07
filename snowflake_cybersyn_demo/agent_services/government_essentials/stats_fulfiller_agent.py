@@ -145,7 +145,7 @@ stats_fulfiller_tool = FunctionTool.from_defaults(
 agent = OpenAIAgent.from_tools(
     [stats_fulfiller_tool],
     system_prompt=AGENT_SYSTEM_PROMPT,
-    llm=OpenAI(model="gpt-3.5-turbo"),
+    llm=OpenAI(model="gpt-4o-mini"),
     verbose=True,
 )
 
