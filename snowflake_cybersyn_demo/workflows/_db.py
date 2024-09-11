@@ -10,7 +10,6 @@ snowflake_user = load_from_env("SNOWFLAKE_USERNAME")
 snowflake_password = load_from_env("SNOWFLAKE_PASSWORD")
 snowflake_account = load_from_env("SNOWFLAKE_ACCOUNT")
 snowflake_role = load_from_env("SNOWFLAKE_ROLE")
-localhost = load_from_env("LOCALHOST")
 
 CANDIDATE_LIST_SQL_QUERY_TEMPLATE = """
 SELECT DISTINCT att.product,
