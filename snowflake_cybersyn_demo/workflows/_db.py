@@ -12,7 +12,18 @@ snowflake_account = load_from_env("SNOWFLAKE_ACCOUNT")
 snowflake_role = load_from_env("SNOWFLAKE_ROLE")
 localhost = load_from_env("LOCALHOST")
 
-SQL_QUERY_TEMPLATE = """
+CANDIDATE_LIST_SQL_QUERY_TEMPLATE = """
+SELECT DISTINCT att.product,
+FROM cybersyn.bureau_of_labor_statistics_price_timeseries AS ts
+JOIN cybersyn.bureau_of_labor_statistics_price_attributes AS att
+    ON (ts.variable = att.variable)
+WHERE ts.date >= '2021-01-01'
+  AND att.report = 'Average Price'
+  AND att.product ILIKE '{good}%';
+"""
+
+
+TIMESERIES_SQL_QUERY_TEMPLATE = """
 SELECT ts.date,
        att.variable_name,
        ts.value
@@ -26,9 +37,34 @@ ORDER BY date;
 """
 
 
+def get_list_of_candidate_goods(good: str) -> List[str]:
+    """Returns a list of goods that exist in the database.
+
+    The list of goods is represented as a string separated by '\n'."""
+    query = CANDIDATE_LIST_SQL_QUERY_TEMPLATE.format(good=good)
+    url = URL(
+        account=snowflake_account,
+        user=snowflake_user,
+        password=snowflake_password,
+        database="FINANCIAL__ECONOMIC_ESSENTIALS",
+        schema="CYBERSYN",
+        warehouse="COMPUTE_WH",
+        role=snowflake_role,
+    )
+
+    engine = create_engine(url)
+    try:
+        connection = engine.connect()
+        results = connection.execute(text(query))
+    finally:
+        connection.close()
+
+    return [f"{ix+1}. {str(el[0])}" for ix, el in enumerate(results)]
+
+
 def get_time_series_of_good(good: str) -> str:
     """Create a time series of the average price paid for a good nationwide starting in 2021."""
-    query = SQL_QUERY_TEMPLATE.format(good=good)
+    query = TIMESERIES_SQL_QUERY_TEMPLATE.format(good=good)
     url = URL(
         account=snowflake_account,
         user=snowflake_user,
