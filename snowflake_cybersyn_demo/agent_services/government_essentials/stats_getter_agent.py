@@ -58,7 +58,7 @@ Be sure to use the exact variable names that were retrieved from the database to
 """
 
 
-def get_list_of_statistical_variables(city: str, query: str) -> str:
+def get_list_of_statistical_variables(city: str) -> str:
     """Returns a list of statistical variables that closely resemble the query.
 
     The list of statistical vars is represented as a string separated by '\n'.
