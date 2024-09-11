@@ -11,3 +11,4 @@ pyproject.local.toml
 __pycache__
 data
 notebooks
+.DS_Store
