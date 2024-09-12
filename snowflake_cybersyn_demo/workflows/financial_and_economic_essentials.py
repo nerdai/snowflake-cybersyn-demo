@@ -10,6 +10,7 @@ from llama_index.core.workflow import (
 from llama_index.llms.openai import OpenAI
 
 import snowflake_cybersyn_demo.workflows._db as db
+from snowflake_cybersyn_demo.workflows.human_input import HumanInputWorkflow
 
 
 class CandidateLookupEvent(Event):
@@ -32,14 +33,16 @@ class GoodsTimeSeriesWorkflow(Workflow):
         return CandidateLookupEvent(candidates=candidates)
 
     @step
-    async def human_input(self, ev: CandidateLookupEvent) -> HumanInputEvent:
+    async def human_input(
+        self, ev: CandidateLookupEvent, human_input_workflow: Workflow
+    ) -> HumanInputEvent:
         candidate_list = "\n".join(ev.candidates)
         human_prompt = (
             "List of goods that exist in the database are provided below."
             f"{candidate_list}"
             "\n\nPlease select one.:\n\n"
         )
-        human_input = input(human_prompt)
+        human_input = await human_input_workflow.run(prompt=human_prompt)
 
         # use llm to clean up selection
         llm = OpenAI("gpt-4o")
@@ -73,6 +76,7 @@ class GoodsTimeSeriesWorkflow(Workflow):
 # Local Testing
 async def _test_workflow() -> None:
     w = GoodsTimeSeriesWorkflow(timeout=None, verbose=False)
+    w.add_workflows(human_input_workflow=HumanInputWorkflow())
     result = await w.run(input="gasoline")
     print(str(result))
 
