@@ -10,6 +10,7 @@ from llama_index.core.workflow import (
 from llama_index.llms.openai import OpenAI
 
 import snowflake_cybersyn_demo.workflows._db as db
+from snowflake_cybersyn_demo.workflows.human_input import HumanInputWorkflow
 
 
 class StatisticsLookupEvent(Event):
@@ -34,14 +35,18 @@ class GovtEssentialsStatisticsWorkflow(Workflow):
         return StatisticsLookupEvent(statistic_variables=stats_vars, city=city)
 
     @step
-    async def human_input(self, ev: StatisticsLookupEvent) -> HumanInputEvent:
+    async def human_input(
+        self,
+        ev: StatisticsLookupEvent,
+        human_input_workflow: HumanInputWorkflow,
+    ) -> HumanInputEvent:
         stats_vars = "\n".join(ev.statistic_variables)
         human_prompt = (
             "List of statistic variables that exist in the database are provided below."
             f"{stats_vars}"
             "\n\nPlease select one.:\n\n"
         )
-        human_input = input(human_prompt)
+        human_input = await human_input_workflow.run(prompt=human_prompt)
 
         # use llm to clean up selection
         llm = OpenAI("gpt-4o")
@@ -77,6 +82,7 @@ class GovtEssentialsStatisticsWorkflow(Workflow):
 # Local Testing
 async def _test_workflow() -> None:
     w = GovtEssentialsStatisticsWorkflow(timeout=None, verbose=False)
+    w.add_workflows(human_input_workflow=HumanInputWorkflow())
     result = await w.run(city="New York")
     print(str(result))
 
